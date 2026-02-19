@@ -1,0 +1,8 @@
+node_modules
+.next
+build
+dist
+shrimp-data
+*.lock
+coverage
+.cache
