@@ -30,10 +30,12 @@ lib/                  # 유틸리티 및 헬퍼 함수
 ## 🔌 API 라우트 규칙
 
 ### 파일 위치
+
 - `app/api/[endpoint]/route.ts`
 - 각 엔드포인트별로 폴더 생성
 
 ### 구조
+
 ```typescript
 // app/api/users/route.ts
 
@@ -52,15 +54,13 @@ export async function GET(request: Request) {
     return Response.json(data);
   } catch (error) {
     console.error("API 오류:", error);
-    return Response.json(
-      { error: "요청 실패" },
-      { status: 500 }
-    );
+    return Response.json({ error: "요청 실패" }, { status: 500 });
   }
 }
 ```
 
 ### 규칙
+
 - 각 HTTP 메서드별로 함수 정의 (GET, POST, PUT, DELETE)
 - 항상 try-catch 사용
 - 에러는 콘솔과 응답으로 모두 반환
@@ -71,10 +71,12 @@ export async function GET(request: Request) {
 ## 🗂️ 컴포넌트 규칙
 
 ### 파일명
+
 - 파일명은 **PascalCase** (UserCard.tsx)
 - 폴더명은 **camelCase** (authForm/)
 
 ### Server Component vs Client Component
+
 ```typescript
 // Server Component (기본값) - 데이터 페칭, DB 접근
 export default async function UserList() {
@@ -92,6 +94,7 @@ export default function UserForm() {
 ```
 
 ### Props 타입 정의
+
 ```typescript
 interface UserCardProps {
   userId: string;
@@ -111,6 +114,7 @@ export default function UserCard({
 ```
 
 ### 규칙
+
 - 항상 Props 인터페이스 정의
 - 선택적 Props는 `?` 사용
 - 컴포넌트는 300줄 이하 유지
@@ -121,6 +125,7 @@ export default function UserCard({
 ## 🗄️ Supabase 규칙
 
 ### 클라이언트 생성
+
 ```typescript
 // lib/supabase/client.ts
 import { createBrowserClient } from "@supabase/auth-helpers-nextjs";
@@ -128,18 +133,18 @@ import { createBrowserClient } from "@supabase/auth-helpers-nextjs";
 export const createClient = () =>
   createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
 
 // lib/supabase/server.ts
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 
-export const createServerClient = () =>
-  createServerComponentClient({ cookies });
+export const createServerClient = () => createServerComponentClient({ cookies });
 ```
 
 ### 데이터 페칭 패턴
+
 ```typescript
 // lib/supabase/queries.ts
 
@@ -158,6 +163,7 @@ export async function fetchUsers() {
 ```
 
 ### 규칙
+
 - 모든 쿼리는 `lib/supabase/queries.ts`에서 관리
 - 컴포넌트에서 직접 `supabase` 호출 금지
 - 에러는 명확한 메시지와 함께 throw
@@ -168,6 +174,7 @@ export async function fetchUsers() {
 ## 🎨 Tailwind CSS 규칙
 
 ### 클래스 정렬 순서
+
 ```tsx
 // ✅ 좋음
 <div className="flex flex-col gap-4 p-4 bg-white rounded-lg shadow-md">
@@ -183,6 +190,7 @@ export async function fetchUsers() {
 ```
 
 ### 커스텀 클래스
+
 ```typescript
 // 많은 클래스의 반복을 피하기 위해 컴포넌트화
 function Card({ children }: { children: React.ReactNode }) {
@@ -199,6 +207,7 @@ function Card({ children }: { children: React.ReactNode }) {
 ## 🔐 인증 (Supabase Auth)
 
 ### 기본 흐름
+
 ```typescript
 // app/api/auth/signin/route.ts
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -215,10 +224,7 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    return Response.json(
-      { error: error.message },
-      { status: 400 }
-    );
+    return Response.json({ error: error.message }, { status: 400 });
   }
 
   return Response.json({ success: true });
@@ -226,6 +232,7 @@ export async function POST(request: Request) {
 ```
 
 ### 규칙
+
 - 인증 상태는 context나 hook으로 관리
 - 토큰은 쿠키에 자동 저장 (보안)
 - 보호된 라우트는 미들웨어로 관리
@@ -235,10 +242,12 @@ export async function POST(request: Request) {
 ## 📝 타입 정의
 
 ### 위치
+
 - `lib/types/` - 프로젝트 전체 타입
 - `components/[feature]/types.ts` - 기능별 타입
 
 ### 네이밍
+
 ```typescript
 // ✅ 좋음
 type User = {
@@ -253,8 +262,12 @@ interface UserRepository {
 }
 
 // ❌ 피하기
-type IUser = { /* ... */ };      // Interface 접두사 불필요
-type user = { /* ... */ };        // PascalCase 사용
+type IUser = {
+  /* ... */
+}; // Interface 접두사 불필요
+type user = {
+  /* ... */
+}; // PascalCase 사용
 ```
 
 ---
@@ -262,9 +275,11 @@ type user = { /* ... */ };        // PascalCase 사용
 ## 🧪 테스트
 
 ### 파일 위치
+
 - `__tests__/` 또는 `.test.ts` / `.spec.ts` 파일명
 
 ### 기본 패턴
+
 ```typescript
 // lib/__tests__/utils.test.ts
 
@@ -288,11 +303,13 @@ describe("formatDate", () => {
 ## 🚀 배포 고려사항
 
 ### 환경 변수
+
 - `.env.local` - 로컬 개발용 (커밋 금지)
 - `.env.example` - 예시 파일 (커밋 필수)
 - 민감 정보는 `NEXT_PUBLIC_` 제외
 
 ### 빌드 체크
+
 ```bash
 # 빌드 전 확인
 npm run build
@@ -310,6 +327,7 @@ npm run lint
 5. **PR**: 변경 사항 설명과 함께 제출
 
 ### 커밋 메시지 예시
+
 ```
 feat: 사용자 프로필 수정 기능 추가
 

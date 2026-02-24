@@ -1,47 +1,44 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Suspense } from "react";
 
-async function ErrorContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ error: string }>;
-}) {
+async function ErrorContent({ searchParams }: { searchParams: Promise<{ error: string }> }) {
   const params = await searchParams;
 
   return (
     <>
       {params?.error ? (
-        <p className="text-sm text-muted-foreground">
-          Code error: {params.error}
-        </p>
+        <p className="text-sm text-muted-foreground">오류 코드: {params.error}</p>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          An unspecified error occurred.
-        </p>
+        <p className="text-sm text-muted-foreground">알 수 없는 오류가 발생했습니다.</p>
       )}
     </>
   );
 }
 
-export default function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ error: string }>;
-}) {
+export default function Page({ searchParams }: { searchParams: Promise<{ error: string }> }) {
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">
-                Sorry, something went wrong.
-              </CardTitle>
+              <CardTitle className="text-2xl">죄송합니다. 문제가 발생했습니다.</CardTitle>
             </CardHeader>
             <CardContent>
-              <Suspense>
-                <ErrorContent searchParams={searchParams} />
-              </Suspense>
+              <div className="flex flex-col gap-4">
+                <Suspense>
+                  <ErrorContent searchParams={searchParams} />
+                </Suspense>
+
+                {/* 로그인으로 돌아가기 버튼 */}
+                <Link href="/auth/login" className="mt-2">
+                  <Button className="w-full" variant="outline">
+                    로그인으로 돌아가기
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
         </div>
