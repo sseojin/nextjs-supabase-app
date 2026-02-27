@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { Project, ProjectWithMembers } from '@/lib/types/project';
 
 /**
@@ -302,6 +303,174 @@ export async function getProjectById(projectId: string, userId?: string): Promis
     return project;
   } catch (error) {
     console.error('getProjectById 에러:', error);
+    throw error;
+  }
+}
+
+/**
+ * 사용자를 프로젝트에 멤버로 추가합니다.
+ * Phase 2: 공유 링크를 통한 프로젝트 참여 기능에 사용
+ *
+ * @param projectId - 프로젝트 ID
+ * @param userId - 참여할 사용자 ID
+ * @returns {Promise<ProjectMember>} 추가된 멤버 정보
+ * @throws 프로젝트 없음, 멤버 수 제한, 중복 참여 시 throw
+ */
+export async function joinProject(
+  projectId: string,
+  userId: string
+): Promise<any> {
+  try {
+    const supabase = await createClient();
+
+    // 1단계: 프로젝트 존재 여부 확인
+    const { data: projectData, error: projectError } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('id', projectId)
+      .maybeSingle();
+
+    if (projectError) {
+      throw new Error(`프로젝트 조회 실패: ${projectError.message}`);
+    }
+
+    if (!projectData) {
+      throw new Error('프로젝트를 찾을 수 없습니다.');
+    }
+
+    // 2단계: 중복 참여 확인 (먼저 체크)
+    // 이미 참여한 사용자가 다시 참여하려는 경우를 먼저 처리
+    const { data: existingMember, error: existingError } = await supabase
+      .from('project_members')
+      .select('id')
+      .eq('project_id', projectId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingError) {
+      throw new Error(`중복 확인 실패: ${existingError.message}`);
+    }
+
+    if (existingMember) {
+      throw new Error('이미 참여한 프로젝트입니다.');
+    }
+
+    // 3단계: 현재 멤버 수 확인 (최대 2명)
+    const { data: memberCountData, error: countError } = await supabase
+      .from('project_members')
+      .select('id', { count: 'exact' })
+      .eq('project_id', projectId);
+
+    if (countError) {
+      throw new Error(`멤버 조회 실패: ${countError.message}`);
+    }
+
+    const memberCount = memberCountData?.length || 0;
+    if (memberCount >= 2) {
+      throw new Error('최대 2명까지만 참여 가능합니다.');
+    }
+
+    // 4단계: 멤버 추가
+    const { data: newMember, error: insertError } = await supabase
+      .from('project_members')
+      .insert({
+        project_id: projectId,
+        user_id: userId,
+        role: 'member',
+        display_color: '#0000FF', // member: 파란색
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      throw new Error(`멤버 추가 실패: ${insertError.message}`);
+    }
+
+    if (!newMember) {
+      throw new Error('멤버 추가에 실패했습니다.');
+    }
+
+    return {
+      id: newMember.id,
+      project_id: newMember.project_id,
+      user_id: newMember.user_id,
+      role: newMember.role,
+      display_color: newMember.display_color,
+      joined_at: new Date(newMember.joined_at),
+    };
+  } catch (error) {
+    console.error('joinProject 에러:', error);
+    throw error;
+  }
+}
+
+/**
+ * 공유 링크로 프로젝트를 조회합니다.
+ * Phase 2: 공유 링크를 통한 프로젝트 참여 기능에 사용
+ *
+ * @param shareLink - 공유 링크 (10자 nanoid)
+ * @returns {Promise<Project>} 프로젝트 정보
+ * @throws 공유 링크를 찾을 수 없거나 DB 에러 시 throw
+ */
+export async function getProjectByShareLink(shareLink: string): Promise<Project> {
+  try {
+    // share_link 유효성 검증
+    if (!shareLink || shareLink.length !== 10) {
+      throw new Error('공유 링크가 유효하지 않습니다.');
+    }
+
+    // Service Role Key를 사용한 Admin 클라이언트 (RLS 무시)
+    // 미로그인 사용자도 공유 링크로 프로젝트 정보 조회 가능
+    const adminClient = createAdminClient();
+
+    // share_link로 프로젝트 조회
+    const { data: projectData, error: projectError } = await adminClient
+      .from('projects')
+      .select(
+        `
+        id,
+        title,
+        date,
+        creator_id,
+        share_link,
+        status,
+        location,
+        created_at,
+        updated_at
+      `
+      )
+      .eq('share_link', shareLink)
+      .maybeSingle();
+
+    if (projectError) {
+      throw new Error(`프로젝트 조회 실패: ${projectError.message}`);
+    }
+
+    if (!projectData) {
+      throw new Error('공유 링크를 찾을 수 없습니다.');
+    }
+
+    // Project 객체로 변환 (role은 member로 기본값 설정)
+    const project: Project = {
+      id: projectData.id,
+      title: projectData.title,
+      date: new Date(projectData.date),
+      creator_id: projectData.creator_id,
+      share_link: projectData.share_link,
+      status: projectData.status,
+      role: 'member', // 기본값: member (참여 페이지에서는 아직 멤버가 아님)
+      location: projectData.location,
+      created_at: projectData.created_at
+        ? new Date(projectData.created_at)
+        : undefined,
+      updated_at: projectData.updated_at
+        ? new Date(projectData.updated_at)
+        : undefined,
+    };
+
+    return project;
+  } catch (error) {
+    console.error('getProjectByShareLink 에러:', error);
     throw error;
   }
 }
