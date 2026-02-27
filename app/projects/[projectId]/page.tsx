@@ -1,0 +1,358 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { format } from "date-fns";
+import { ko } from "date-fns/locale";
+import { ArrowLeft, Loader2, Users, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
+import type { ProjectWithMembers } from "@/lib/types/project";
+
+/**
+ * 프로젝트 상세 페이지
+ * Phase 1: 기본 프로젝트 정보와 멤버 목록 표시
+ * Phase 2: 공유 링크 복사, 참여 기능 추가
+ * Phase 3: 네이버 지도 추가
+ */
+export default function ProjectDetailPage() {
+  const router = useRouter();
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const projectId = params.projectId as string;
+
+  // URL 쿼리 파라미터에서 돌아갈 월 정보 가져오기
+  const paramYear = searchParams.get("year");
+  const paramMonth = searchParams.get("month");
+
+  const [project, setProject] = useState<ProjectWithMembers | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  /**
+   * 뒤로가기 핸들러
+   * URL 파라미터에 year, month가 있으면 그 달로 이동
+   * 없으면 대시보드로 이동
+   */
+  const handleGoBack = () => {
+    if (paramYear && paramMonth) {
+      router.push(`/dashboard?year=${paramYear}&month=${paramMonth}`);
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
+  /**
+   * 프로젝트 상세 정보 조회
+   */
+  useEffect(() => {
+    const fetchProject = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        // Supabase 세션에서 토큰 가져오기
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session) {
+          throw new Error("인증이 필요합니다. 다시 로그인해주세요.");
+        }
+
+        const response = await fetch(`/api/projects/${projectId}`, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          try {
+            const errorData = await response.json();
+            throw new Error(errorData?.error || "프로젝트를 불러올 수 없습니다");
+          } catch {
+            throw new Error(`프로젝트 조회 실패: HTTP ${response.status}`);
+          }
+        }
+
+        const data = await response.json();
+        setProject(data);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "프로젝트 조회 중 오류가 발생했습니다";
+        setError(errorMessage);
+        console.error("프로젝트 조회 에러:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (projectId) {
+      fetchProject();
+    }
+  }, [projectId]);
+
+  /**
+   * 프로젝트 삭제 핸들러
+   * creator만 삭제 가능
+   */
+  const handleDelete = async () => {
+    try {
+      setDeleting(true);
+
+      // Supabase 세션에서 토큰 가져오기
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error("인증이 필요합니다. 다시 로그인해주세요.");
+      }
+
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData?.error || "프로젝트 삭제에 실패했습니다");
+        } catch {
+          throw new Error(`프로젝트 삭제 실패: HTTP ${response.status}`);
+        }
+      }
+
+      // 성공 알림
+      toast.success("프로젝트가 삭제되었습니다");
+
+      // 모달 닫고 프로젝트의 날짜 기반으로 해당 월 캘린더로 이동
+      setShowDeleteDialog(false);
+      setTimeout(() => {
+        if (project) {
+          const projectDate = new Date(project.date);
+          const year = projectDate.getFullYear();
+          const month = projectDate.getMonth() + 1;
+          router.push(`/dashboard?year=${year}&month=${month}`);
+        } else {
+          router.push("/dashboard");
+        }
+      }, 300);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "프로젝트 삭제 중 오류가 발생했습니다";
+      toast.error(errorMessage);
+      console.error("프로젝트 삭제 에러:", err);
+      setShowDeleteDialog(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen gap-2">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <span>프로젝트를 불러오는 중...</span>
+      </div>
+    );
+  }
+
+  if (error || !project) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4">
+        <div className="text-center">
+          <h2 className="text-lg font-semibold text-slate-900 mb-2">오류 발생</h2>
+          <p className="text-slate-600 mb-4">{error || "프로젝트를 찾을 수 없습니다"}</p>
+          <Button onClick={handleGoBack}>뒤로 가기</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const formattedDate = format(new Date(project.date), "yyyy년 M월 d일 (EEEE)", {
+    locale: ko,
+  });
+
+  return (
+    <div className="w-full min-h-screen bg-slate-50">
+      {/* 헤더 */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleGoBack}
+            aria-label="뒤로 가기"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold text-slate-900 flex-1 truncate">
+            {project.title}
+          </h1>
+          {project.role === "creator" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowDeleteDialog(true)}
+              aria-label="프로젝트 삭제"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* 콘텐츠 */}
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+        {/* 프로젝트 정보 카드 */}
+        <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
+          <div>
+            <h3 className="text-sm font-medium text-slate-600 mb-1">날짜</h3>
+            <p className="text-base text-slate-900">{formattedDate}</p>
+          </div>
+
+          <div className="border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-medium text-slate-600 mb-2">상태</h3>
+            <div className="flex gap-2 items-center">
+              <span
+                className={`
+                  px-3 py-1 rounded-full text-xs font-medium
+                  ${
+                    project.status === "active"
+                      ? "bg-green-100 text-green-700"
+                      : project.status === "archived"
+                        ? "bg-gray-100 text-gray-700"
+                        : "bg-blue-100 text-blue-700"
+                  }
+                `}
+              >
+                {project.status === "active"
+                  ? "진행 중"
+                  : project.status === "archived"
+                    ? "보관됨"
+                    : "완료"}
+              </span>
+            </div>
+          </div>
+
+          {project.created_at && (
+            <div className="border-t border-slate-200 pt-4">
+              <h3 className="text-sm font-medium text-slate-600 mb-1">생성일</h3>
+              <p className="text-sm text-slate-600">
+                {format(new Date(project.created_at), "yyyy년 M월 d일 HH:mm", {
+                  locale: ko,
+                })}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 멤버 목록 */}
+        <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="h-5 w-5 text-slate-600" />
+            <h2 className="text-base font-semibold text-slate-900">멤버</h2>
+            <span className="ml-auto text-sm text-slate-600">{project.members.length}명</span>
+          </div>
+
+          <div className="space-y-3">
+            {project.members.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg"
+              >
+                {/* 색상 배지 */}
+                <div
+                  className="w-4 h-4 rounded"
+                  style={{ backgroundColor: member.display_color }}
+                  title={member.display_color}
+                />
+
+                {/* 멤버 정보 */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-900 font-medium truncate">
+                    {member.user_id}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {member.role === "creator" ? "생성자" : "참여자"}
+                  </p>
+                </div>
+
+                {/* 역할 배지 */}
+                <span
+                  className={`
+                    px-2 py-1 rounded text-xs font-medium whitespace-nowrap
+                    ${
+                      member.role === "creator"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-blue-100 text-blue-700"
+                    }
+                  `}
+                >
+                  {member.role === "creator" ? "Creator" : "Member"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 주석: Phase 2/3 기능 예정 */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-700">
+            💡 <strong>Phase 2:</strong> 공유 링크 복사 및 참여 기능
+          </p>
+          <p className="text-sm text-blue-700 mt-1">
+            💡 <strong>Phase 3:</strong> 네이버 지도 및 후보지 관리
+          </p>
+        </div>
+      </div>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>프로젝트 삭제</DialogTitle>
+            <DialogDescription>
+              "{project?.title}" 프로젝트를 삭제하시겠습니까?
+              <br />
+              이 작업은 되돌릴 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-3 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={deleting}
+            >
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  삭제 중...
+                </>
+              ) : (
+                "삭제"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

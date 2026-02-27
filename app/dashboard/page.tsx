@@ -12,7 +12,7 @@ export default function DashboardPage() {
       {/* 페이지 제목 */}
       <div className="flex flex-col gap-2">
         <h2 className="text-2xl font-bold text-slate-900">내 캘린더</h2>
-        <p className="text-sm text-slate-600">프로젝트와 일정을 캘린더에서 관리하세요</p>
+        <p className="text-sm text-slate-600">데이트 일정을 캘린더에서 관리하세요</p>
       </div>
 
       {/* Calendar 컴포넌트 */}

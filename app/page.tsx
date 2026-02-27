@@ -10,16 +10,16 @@ export default function Home() {
         <div className="flex flex-col items-center gap-2 mb-8">
           <div className="text-4xl font-bold text-slate-900">📅</div>
           <h1 className="text-3xl font-bold text-slate-900">Date Planner</h1>
-          <p className="text-sm text-slate-600 text-center">프로젝트와 일정을 한눈에 관리하세요</p>
+          <p className="text-sm text-slate-600 text-center">데이트 일정을 한눈에 관리하세요</p>
         </div>
 
         {/* 메인 카드 */}
         <Card className="flex flex-col gap-6 p-6 shadow-lg bg-white">
           {/* 설명 텍스트 */}
           <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold text-slate-900">함께하는 프로젝트 관리</h2>
+            <h2 className="text-lg font-semibold text-slate-900">함께 짜보는 데이트 코스</h2>
             <p className="text-sm text-slate-600">
-              팀 프로젝트를 캘린더에서 체계적으로 관리하고, 진행 상황을 실시간으로 공유하세요.
+              데이트 일정을 캘린더에서 체계적으로 관리하고, 진행 상황을 실시간으로 공유하세요.
             </p>
           </div>
 

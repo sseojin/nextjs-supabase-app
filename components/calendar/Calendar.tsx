@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
 import {
   getCalendarDates,
   mapProjectsToDates,
@@ -13,29 +15,114 @@ import {
 import type { Project, DateCellData } from "@/lib/types/project";
 import DateCell from "./DateCell";
 import CreateProjectModal from "./CreateProjectModal";
+import { toast } from "sonner";
 
 /**
  * 캘린더 메인 컴포넌트
- * Phase 0: 로컬 상태 기반 프로젝트 관리
- * Phase 1: API 연동으로 업그레이드 예정
+ * Phase 1: API 기반 프로젝트 관리
  *
  * 기능:
+ * - 월별 프로젝트 조회 (GET /api/projects?year=YYYY&month=MM)
  * - 7x6 그리드 렌더링 (월 단위)
  * - 이전/다음 달 버튼으로 월 이동
  * - 날짜 클릭 시 프로젝트 생성 모달 열기
- * - 프로젝트 생성 시 배지 표시
+ * - 프로젝트 생성 시 API 호출 (POST /api/projects)
+ * - API 응답으로 배지 표시
  * - 배지 색상: creator(빨강), member(파랑)
+ * - 로딩 상태 표시
+ * - 에러 처리
  */
 export default function Calendar() {
+  // URL 쿼리 파라미터 읽기 (프로젝트 삭제 후 돌아올 달 정보)
+  const searchParams = useSearchParams();
+  const paramYear = searchParams.get("year");
+  const paramMonth = searchParams.get("month");
+
+  // 초기 월 계산 (쿼리 파라미터가 있으면 그것 사용, 없으면 현재 월)
+  const getInitialMonth = (): Date => {
+    if (paramYear && paramMonth) {
+      const year = parseInt(paramYear, 10);
+      const month = parseInt(paramMonth, 10);
+      if (!isNaN(year) && !isNaN(month) && month >= 1 && month <= 12) {
+        return new Date(year, month - 1, 1);
+      }
+    }
+    return new Date();
+  };
+
   // 상태 관리
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [currentMonth, setCurrentMonth] = useState<Date>(getInitialMonth());
   const [projects, setProjects] = useState<Project[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // 캘린더 데이터 생성
   const calendarDates = getCalendarDates(currentMonth);
   const datesCellData = mapProjectsToDates(calendarDates, currentMonth, projects);
+
+  /**
+   * API에서 월별 프로젝트 조회
+   * currentMonth가 변경될 때마다 자동으로 호출
+   */
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      // Supabase 세션에서 토큰 가져오기
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        // 로그인하지 않은 상태 - 빈 프로젝트 목록 표시
+        setProjects([]);
+        setError("");
+        return;
+      }
+
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth() + 1; // getMonth()는 0-11이므로 +1
+
+      // Authorization 헤더에 토큰 포함
+      const response = await fetch(`/api/projects?year=${year}&month=${month}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData?.error || "프로젝트 조회에 실패했습니다");
+        } catch {
+          throw new Error(`프로젝트 조회 실패: HTTP ${response.status}`);
+        }
+      }
+
+      const data = await response.json();
+      setProjects(data || []);
+      setError("");
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "프로젝트 조회 중 오류가 발생했습니다";
+      setError(errorMessage);
+      console.error("프로젝트 조회 에러:", err);
+      // toast는 선택사항 (자동 에러 표시)
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * 초기 로드 및 월 변경 시 프로젝트 조회
+   */
+  useEffect(() => {
+    fetchProjects();
+  }, [currentMonth]);
 
   /**
    * 날짜 셀 클릭 핸들러
@@ -49,22 +136,12 @@ export default function Calendar() {
   };
 
   /**
-   * 프로젝트 생성 핸들러
-   * 새로운 프로젝트를 projects 배열에 추가
-   * Phase 0: 로컬 상태만 업데이트
-   * Phase 1: API 호출로 변경 예정
+   * 프로젝트 생성 완료 핸들러
+   * CreateProjectModal에서 API 호출 완료 후 호출됨
    */
-  const handleCreateProject = (title: string, date: Date) => {
-    const newProject: Project = {
-      id: `project-${Date.now()}`,
-      title,
-      date: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
-      role: "creator", // Phase 0: 항상 creator로 설정
-      createdAt: new Date(),
-    };
-
-    setProjects([...projects, newProject]);
-    setIsModalOpen(false);
+  const handleProjectCreated = () => {
+    // 프로젝트 목록 재조회
+    fetchProjects();
   };
 
   /**
@@ -90,6 +167,7 @@ export default function Calendar() {
             size="icon"
             className="h-11 w-11"
             onClick={handlePreviousMonth}
+            disabled={loading}
             aria-label="이전 달"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -99,6 +177,7 @@ export default function Calendar() {
             size="icon"
             className="h-11 w-11"
             onClick={handleNextMonth}
+            disabled={loading}
             aria-label="다음 달"
           >
             <ChevronRight className="h-5 w-5" />
@@ -127,10 +206,26 @@ export default function Calendar() {
               key={dateCell.date.toISOString()}
               dateCell={dateCell}
               onDateClick={handleDateClick}
+              currentMonth={currentMonth}
             />
           ))}
         </div>
       </div>
+
+      {/* 로딩 상태 표시 */}
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-4 text-slate-600">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">프로젝트를 불러오는 중...</span>
+        </div>
+      )}
+
+      {/* 에러 상태 표시 */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
 
       {/* 프로젝트 생성 모달 */}
       {selectedDate && (
@@ -141,14 +236,16 @@ export default function Calendar() {
             setSelectedDate(null);
           }}
           selectedDate={selectedDate}
-          onCreateProject={handleCreateProject}
+          onProjectCreated={handleProjectCreated}
         />
       )}
 
-      {/* Phase 0: 통계 표시 */}
-      <div className="border-t border-slate-200 pt-4">
-        <p className="text-sm text-slate-600">총 {projects.length}개 프로젝트</p>
-      </div>
+      {/* 프로젝트 통계 */}
+      {!loading && (
+        <div className="border-t border-slate-200 pt-4">
+          <p className="text-sm text-slate-600">총 {projects.length}개 프로젝트</p>
+        </div>
+      )}
     </div>
   );
 }
