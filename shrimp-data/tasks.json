@@ -1,0 +1,213 @@
+{
+  "tasks": [
+    {
+      "id": "cd1b7e34-b9bc-4bc8-9bbd-081560b6a0fd",
+      "name": "패키지 설치 및 폴더 구조 생성",
+      "description": "date-fns, sonner 설치 및 shadcn/ui Dialog 추가. 폴더 생성",
+      "notes": "필수 라이브러리",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-02-26T13:49:21.537Z",
+      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "relatedFiles": [
+        {
+          "path": "package.json",
+          "type": "TO_MODIFY",
+          "description": "라이브러리 추가"
+        }
+      ],
+      "implementationGuide": "npm install date-fns sonner\nnpx shadcn@latest add dialog\n폴더 생성",
+      "verificationCriteria": "패키지 설치 확인"
+    },
+    {
+      "id": "c4c2b4b0-25fd-45ea-aa87-f8dd24a6fbaf",
+      "name": "프로젝트 타입 정의",
+      "description": "lib/types/project.ts 생성",
+      "notes": "로컬 상태용",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "cd1b7e34-b9bc-4bc8-9bbd-081560b6a0fd"
+        }
+      ],
+      "createdAt": "2026-02-26T13:49:21.537Z",
+      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "relatedFiles": [
+        {
+          "path": "lib/types/project.ts",
+          "type": "CREATE",
+          "description": "타입"
+        }
+      ],
+      "implementationGuide": "Project, DateCellData 타입 정의",
+      "verificationCriteria": "타입 정의 완료"
+    },
+    {
+      "id": "868912dc-8d4c-4b4f-9620-c8142022f226",
+      "name": "캘린더 유틸리티 함수 구현",
+      "description": "lib/utils/calendar.ts 생성",
+      "notes": "한국어 포맷",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "c4c2b4b0-25fd-45ea-aa87-f8dd24a6fbaf"
+        }
+      ],
+      "createdAt": "2026-02-26T13:49:21.537Z",
+      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "relatedFiles": [
+        {
+          "path": "lib/utils/calendar.ts",
+          "type": "CREATE",
+          "description": "유틸"
+        }
+      ],
+      "implementationGuide": "date-fns 활용한 날짜 계산",
+      "verificationCriteria": "함수 동작"
+    },
+    {
+      "id": "5d2d9974-4fe8-4bb3-bfbb-0d99150afce0",
+      "name": "랜딩 페이지 수정",
+      "description": "app/page.tsx 수정",
+      "notes": "모바일 우선",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "cd1b7e34-b9bc-4bc8-9bbd-081560b6a0fd"
+        }
+      ],
+      "createdAt": "2026-02-26T13:49:21.537Z",
+      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "relatedFiles": [
+        {
+          "path": "app/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "랜딩"
+        }
+      ],
+      "implementationGuide": "Date Planner 제목, 로그인/회원가입 버튼",
+      "verificationCriteria": "버튼 크기"
+    },
+    {
+      "id": "44e14843-bffb-4844-a6b0-6ad736d7782b",
+      "name": "캘린더 페이지 레이아웃",
+      "description": "app/dashboard/ 생성",
+      "notes": "Server Component",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5d2d9974-4fe8-4bb3-bfbb-0d99150afce0"
+        }
+      ],
+      "createdAt": "2026-02-26T13:49:21.537Z",
+      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "relatedFiles": [
+        {
+          "path": "app/dashboard/layout.tsx",
+          "type": "CREATE",
+          "description": "레이아웃"
+        }
+      ],
+      "implementationGuide": "인증 확인 후 캘린더 렌더링",
+      "verificationCriteria": "인증 리다이렉트"
+    },
+    {
+      "id": "d7ef71d1-9e32-4012-882a-1dee2cca38ca",
+      "name": "Calendar 메인 컴포넌트",
+      "description": "components/calendar/Calendar.tsx",
+      "notes": "로컬 상태",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "868912dc-8d4c-4b4f-9620-c8142022f226"
+        },
+        {
+          "taskId": "44e14843-bffb-4844-a6b0-6ad736d7782b"
+        }
+      ],
+      "createdAt": "2026-02-26T13:49:21.537Z",
+      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "relatedFiles": [
+        {
+          "path": "components/calendar/Calendar.tsx",
+          "type": "CREATE",
+          "description": "컴포넌트"
+        }
+      ],
+      "implementationGuide": "7x6 그리드, 월 이동, 상태 관리",
+      "verificationCriteria": "그리드 렌더링"
+    },
+    {
+      "id": "a4c643df-694f-4961-83be-12bf36ab6cc9",
+      "name": "DateCell 컴포넌트",
+      "description": "components/calendar/DateCell.tsx",
+      "notes": "배지 최대 2개",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "d7ef71d1-9e32-4012-882a-1dee2cca38ca"
+        }
+      ],
+      "createdAt": "2026-02-26T13:49:21.537Z",
+      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "relatedFiles": [
+        {
+          "path": "components/calendar/DateCell.tsx",
+          "type": "CREATE",
+          "description": "셀"
+        }
+      ],
+      "implementationGuide": "배지 표시, 색상 구분",
+      "verificationCriteria": "배지 표시"
+    },
+    {
+      "id": "2f10b1c7-7594-4dc6-9698-fc34304f3a7a",
+      "name": "CreateProjectModal",
+      "description": "components/calendar/CreateProjectModal.tsx",
+      "notes": "모바일 친화",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "d7ef71d1-9e32-4012-882a-1dee2cca38ca"
+        }
+      ],
+      "createdAt": "2026-02-26T13:49:21.537Z",
+      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "relatedFiles": [
+        {
+          "path": "components/calendar/CreateProjectModal.tsx",
+          "type": "CREATE",
+          "description": "모달"
+        }
+      ],
+      "implementationGuide": "Dialog, 입력 검증",
+      "verificationCriteria": "모달 동작"
+    },
+    {
+      "id": "63ed3db4-6cd2-49a0-92fa-f45bb8257529",
+      "name": "통합 테스트",
+      "description": "end-to-end 테스트",
+      "notes": "모바일 반응형",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a4c643df-694f-4961-83be-12bf36ab6cc9"
+        },
+        {
+          "taskId": "2f10b1c7-7594-4dc6-9698-fc34304f3a7a"
+        }
+      ],
+      "createdAt": "2026-02-26T13:49:21.537Z",
+      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "relatedFiles": [
+        {
+          "path": "app/page.tsx",
+          "type": "REFERENCE",
+          "description": "확인"
+        }
+      ],
+      "implementationGuide": "전체 흐름 검증",
+      "verificationCriteria": "전체 동작"
+    }
+  ]
+}

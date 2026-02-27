@@ -31,8 +31,8 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
         password,
       });
       if (error) throw error;
-      // Update this route to redirect to an authenticated route. The user already has an active session.
-      router.push("/protected");
+      // 로그인 성공 시 대시보드(캘린더)로 이동
+      router.push("/dashboard");
     } catch (error: unknown) {
       const errorMessage = translateAuthError(error);
       setError(errorMessage);
@@ -60,8 +60,8 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          // 콜백 URL: OAuth 완료 후 돌아올 주소
-          redirectTo: `${window.location.origin}/auth/callback?next=/protected`,
+          // 콜백 URL: OAuth 완료 후 대시보드(캘린더)로 이동
+          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         },
       });
 
