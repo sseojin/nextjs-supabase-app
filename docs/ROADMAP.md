@@ -256,56 +256,56 @@ Phase 9: UI/UX 개선 및 테스트 (2일)
 # 🎯 Phase 2: 공유 링크 생성 + 참여 (1일)
 
 ## 공유 링크 생성 및 저장
-- [ ] `lib/utils/shareLink.ts` 생성
-  - [ ] nanoid 라이브러리 import
-  - [ ] `generateShareLink()` 함수 구현 (10-12자 고유 링크 생성)
+- [x] `lib/utils/shareLink.ts` 생성
+  - [x] nanoid 라이브러리 import
+  - [x] `generateShareLink()` 함수 구현 (10-12자 고유 링크 생성)
 
-- [ ] 프로젝트 생성 시 공유 링크 자동 생성
-  - [ ] API에서 nanoid로 링크 생성
-  - [ ] 링크를 projects 테이블에 저장
+- [x] 프로젝트 생성 시 공유 링크 자동 생성
+  - [x] API에서 nanoid로 링크 생성
+  - [x] 링크를 projects 테이블에 저장
 
 ## 공유 링크 버튼 컴포넌트
-- [ ] `components/projects/ShareLinkButton.tsx` 생성
-  - [ ] 프로젝트 ID 받기
-  - [ ] 공유 링크 URL 구성 (`/join/[shareLink]`)
-  - [ ] 복사 버튼 구현 (react-copy-to-clipboard 또는 Clipboard API)
-  - [ ] 복사 성공 시 토스트 알림 표시
+- [x] `components/projects/ShareLinkButton.tsx` 생성
+  - [x] 프로젝트 ID 받기
+  - [x] 공유 링크 URL 구성 (`/join/[shareLink]`)
+  - [x] 복사 버튼 구현 (react-copy-to-clipboard 또는 Clipboard API)
+  - [x] 복사 성공 시 토스트 알림 표시
 
-- [ ] 프로젝트 상세 페이지에 버튼 추가
+- [x] 프로젝트 상세 페이지에 버튼 추가
 
 ## 공유 링크 참여 페이지 구현
-- [ ] `app/join/[shareLink]/page.tsx` 생성
-  - [ ] 공유 링크 검증
-  - [ ] 프로젝트 존재 여부 확인
-  - [ ] 사용자 인증 확인 (미로그인 시 로그인 페이지로 리다이렉트)
-  - [ ] 이미 참여한 사용자 확인
-  - [ ] 프로젝트 멤버 수 확인 (2명 제한)
+- [x] `app/join/[shareLink]/page.tsx` 생성
+  - [x] 공유 링크 검증
+  - [x] 프로젝트 존재 여부 확인
+  - [x] 사용자 인증 확인 (미로그인 시 로그인 페이지로 리다이렉트)
+  - [x] 이미 참여한 사용자 확인
+  - [x] 프로젝트 멤버 수 확인 (2명 제한)
 
-- [ ] 참여 버튼 UI 구현
-  - [ ] 프로젝트 정보 표시 (제목, 날짜, 생성자)
-  - [ ] "참여하기" 버튼
-  - [ ] 에러 메시지 표시 (이미 참여함, 프로젝트 가득 참 등)
+- [x] 참여 버튼 UI 구현
+  - [x] 프로젝트 정보 표시 (제목, 날짜, 생성자)
+  - [x] "참여하기" 버튼
+  - [x] 에러 메시지 표시 (이미 참여함, 프로젝트 가득 참 등)
 
 ## 참여 API 라우트 구현
-- [ ] `app/api/projects/[projectId]/join/route.ts` 생성
-  - [ ] `POST` 구현 (프로젝트 참여)
-  - [ ] shareLink 검증
-  - [ ] 멤버 수 확인 (2명 제한)
-  - [ ] 이미 참여했는지 확인
-  - [ ] project_members 테이블에 member 추가
-  - [ ] display_color 설정 (member: #0000FF)
+- [x] `app/api/projects/[projectId]/join/route.ts` 생성
+  - [x] `POST` 구현 (프로젝트 참여)
+  - [x] shareLink 검증
+  - [x] 멤버 수 확인 (2명 제한)
+  - [x] 이미 참여했는지 확인
+  - [x] project_members 테이블에 member 추가
+  - [x] display_color 설정 (member: #0000FF)
 
 ## 참여 로직 연결
-- [ ] 참여 버튼 클릭 → API 호출
-  - [ ] 로딩 상태 표시
-  - [ ] 성공 시 프로젝트 상세 페이지로 리다이렉트
-  - [ ] 실패 시 에러 메시지 표시
+- [x] 참여 버튼 클릭 → API 호출
+  - [x] 로딩 상태 표시
+  - [x] 성공 시 프로젝트 상세 페이지로 리다이렉트
+  - [x] 실패 시 에러 메시지 표시
 
 ## 멤버 목록 표시
-- [ ] 프로젝트 상세 페이지에 현재 멤버 목록 표시
-  - [ ] API에서 project_members 조회
-  - [ ] 멤버 역할 표시 (creator/member)
-  - [ ] 멤버 색상 표시 (빨강/파랑)
+- [x] 프로젝트 상세 페이지에 현재 멤버 목록 표시
+  - [x] API에서 project_members 조회
+  - [x] 멤버 역할 표시 (creator/member)
+  - [x] 멤버 색상 표시 (빨강/파랑)
 
 ## 기능 테스트
 - [ ] 프로젝트 생성 후 공유 링크 복사 가능 확인
@@ -853,7 +853,7 @@ Phase 2: ██░░░░░░░░ 20% (2/10 완료)
 - [x] **Phase 1** (100%) - 데이터베이스 + 프로젝트 생성 완료
 
 ### 진행 중인 페이즈
-- [ ] **Phase 2** (0%) - 공유 링크 생성 + 참여 (예정)
+- [x] **Phase 2** (100%) - 공유 링크 생성 + 참여 완료
 
 ### 다음 페이즈
 - [ ] Phase 3: 네이버 지도 기본 구현
@@ -866,6 +866,6 @@ Phase 2: ██░░░░░░░░ 20% (2/10 완료)
 
 ---
 
-**마지막 업데이트**: 2026년 2월 27일
-**상태**: Phase 1 완료 → Phase 2 준비 중
-**다음 단계**: Phase 2 공유 링크 및 참여 기능 구현
+**마지막 업데이트**: 2026년 2월 28일
+**상태**: Phase 1, 2 완료 → Phase 3 준비 중
+**다음 단계**: Phase 3 네이버 지도 기본 구현
