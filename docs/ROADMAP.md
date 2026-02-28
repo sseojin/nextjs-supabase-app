@@ -336,13 +336,16 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
     - [ ] project_id (UUID, FK → projects)
     - [ ] added_by (UUID, FK → auth.users) - 후보지 추가한 사용자
     - [ ] name (TEXT) - 장소명
-    - [ ] address (TEXT) - 주소
+    - [ ] address (TEXT) - 주소 (도로명)
     - [ ] latitude (DECIMAL) - 위도
     - [ ] longitude (DECIMAL) - 경도
     - [ ] category (TEXT) - 카테고리 (카페, 식당, 영화관 등)
-    - [ ] memo (TEXT, nullable) - 메모
+    - [ ] telephone (TEXT, nullable) - 전화번호
+    - [ ] naver_link (TEXT, nullable) - 네이버 지도 링크
+    - [ ] memo (TEXT, nullable) - 메모/설명
     - [ ] is_approved (BOOLEAN DEFAULT false) - 만장일치 여부
     - [ ] created_at, updated_at (TIMESTAMPTZ)
+    - [ ] **image_urls (TEXT[] or JSON, nullable)** - 사용자가 업로드한 사진 URL 배열 (선택사항, Phase 4+ 구현)
   - [ ] **votes 테이블**:
     - [ ] id (UUID, PK)
     - [ ] location_id (UUID, FK → locations)
@@ -391,18 +394,58 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
   - [ ] 검색 결과에서 주소 추출
   - [ ] 모달에 주소 표시
 
+## 장소 검색 API 구현 (핵심 기능)
+- [ ] `app/api/naver-map/search/route.ts` 생성
+  - [ ] `GET` 구현 (장소 검색)
+  - [ ] 쿼리 파라미터: query (가게명, "지역 카테고리" 형식)
+  - [ ] 네이버 Local Search API 호출 (기본 정보만)
+  - [ ] 검색 결과 반환 (정확도순):
+    ```javascript
+    {
+      title: "스타벅스 명동중앙점",
+      address: "서울 중구 명동길 50",
+      roadAddress: "서울 중구 명동 50-1",
+      x: "127.0123",      // 경도
+      y: "37.5645",       // 위도
+      telephone: "02-1234-5678",
+      link: "https://map.naver.com/v5/search/...",
+      category: "카페"
+    }
+    ```
+  - [ ] 사진은 API에서 제공되지 않으므로 별도로 처리하지 않음
+    - [ ] 사용자가 후보지 등록 시 원하면 직접 사진 업로드 가능
+
 ## 장소 검색 컴포넌트 구현
-- [ ] `components/map/LocationSearch.tsx` 생성
-  - [ ] 검색 입력 필드
-  - [ ] 검색 버튼
-  - [ ] 검색 결과 목록 표시
-  - [ ] 결과 항목 클릭 시 콜백 호출
+- [ ] `components/map/LocationSearch.tsx` 생성 ("use client")
+  - [ ] **검색 입력 필드** (모바일 친화, 큼)
+    - [ ] placeholder: "가게 이름, 지역+가게명 (예: 강남 스타벅스)"
+    - [ ] 엔터 키 또는 검색 버튼으로 검색
+  - [ ] **검색 결과 목록** (정확도순 표시)
+    - [ ] 각 아이템: 가게명, 주소, 전화번호
+    - [ ] 클릭 → 해당 가게 선택
+  - [ ] **로딩/에러 상태 처리**
+  - [ ] 결과 선택 시 콜백 호출 (상위 컴포넌트에 데이터 전달)
+
+## 장소 상세 정보 InfoWindow 구현
+- [ ] `components/map/LocationInfoWindow.tsx` 생성 ("use client")
+  - [ ] **상단: 기본 정보**
+    - [ ] 가게 이름 (큰 텍스트)
+    - [ ] 주소 (도로명)
+    - [ ] 전화번호 (모바일에서 tel: 링크)
+  - [ ] **하단: 액션 버튼**
+    - [ ] **"📷 네이버 지도에서 보기" (주요 CTA)**
+      - [ ] 실시간 사진/후기/메뉴 확인 가능
+      - [ ] 웹: window.open(link, '_blank')
+      - [ ] 모바일: 네이버 지도 앱 프로토콜 또는 웹
+    - [ ] **"➕ 후보지 등록" (보조 CTA)**
+      - [ ] 클릭 → AddLocationModal 열기
 
 ## 후보지 추가 모달 구현
-- [ ] `components/locations/AddLocationModal.tsx` 생성
-  - [ ] 장소명 자동 입력 (Reverse Geocoding 결과)
+- [ ] `components/locations/AddLocationModal.tsx` 생성 ("use client")
+  - [ ] 장소명 표시 (읽기 전용)
   - [ ] 주소 표시 (읽기 전용)
   - [ ] 위도/경도 표시 (읽기 전용)
+  - [ ] 전화번호 표시 (읽기 전용)
   - [ ] 카테고리 선택 드롭다운 (카페, 식당, 영화관 등)
   - [ ] 메모 입력 필드 (선택사항)
   - [ ] "추가" 및 "취소" 버튼
@@ -465,17 +508,20 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
     - [ ] 투표 후 해당 location의 is_approved 상태 자동 계산
     - [ ] 성공 시: 업데이트된 location 객체 반환 (투표 정보 포함)
 
-## 지도에서 후보지 등록 흐름
-- [ ] NaverMap 컴포넌트에서 마커 클릭 이벤트
-  - [ ] InfoWindow 표시 (장소명, 주소)
-  - [ ] **"후보지 등록" 버튼 추가** (InfoWindow 하단)
-  - [ ] 버튼 클릭 → AddLocationModal 열기 (자동 좌표, 주소 입력)
+## 지도에서 후보지 등록 통합 흐름
+- [ ] NaverMap 컴포넌트에 마커 클릭/검색 결과 선택 통합
+  - [ ] **검색 결과 선택 → 지도에 마커 표시 + InfoWindow**
+  - [ ] InfoWindow에 LocationInfoWindow 컴포넌트 렌더링
+  - [ ] "📷 네이버 지도에서 보기" 버튼 클릭 → 새 탭에서 네이버 지도 링크 열기
+    - [ ] 사용자가 실시간 사진, 후기, 메뉴 확인 가능
+  - [ ] "➕ 후보지 등록" 버튼 클릭 → AddLocationModal 열기
 
-- [ ] `components/locations/AddLocationModal.tsx` 생성 (기존 구조 유지)
-  - [ ] 장소명, 주소, 위도/경도 (자동 입력)
-  - [ ] 카테고리 선택
-  - [ ] 메모 입력 (선택사항)
-  - [ ] "추가" 버튼 클릭 → `POST /api/projects/[projectId]/locations` 호출
+- [ ] AddLocationModal에서 후보지 추가
+  - [ ] 자동 입력: 장소명, 주소, 좌표, 전화번호, 네이버 링크
+  - [ ] 사용자 입력: 카테고리, 메모
+  - [ ] "추가" 버튼 → `POST /api/projects/[projectId]/locations` 호출
+    - [ ] 요청 본문: name, address, latitude, longitude, telephone, naver_link, category, memo
+    - [ ] 응답: 생성된 location 객체
 
 ## 후보지 목록 및 투표 UI 구현
 - [ ] `components/locations/LocationList.tsx` 생성
@@ -518,16 +564,33 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
     - [ ] 아니면 → is_approved = false
   - [ ] 트리거 생성 (`after insert or update on votes`)
 
-## 기능 테스트
-- [ ] 지도에서 장소 클릭 → InfoWindow → "후보지 등록" 버튼 클릭
-- [ ] 모달에서 정보 입력 → "추가" 버튼 클릭
-- [ ] Supabase의 locations 테이블에 저장 확인
-- [ ] 지도에 계정 색깔의 작은 핀 표시 확인
-- [ ] 후보지 목록에 자동 추가 확인
-- [ ] A 사용자가 찬성 투표 → 마커 색상 유지 (기본 색)
-- [ ] B 사용자도 찬성 투표 → 마커 색상 변경 (초록 핀)
-- [ ] LocationCard에 "✅" 표시 확인
-- [ ] 반대 투표 시나리오 → 검은 핀 + "❌" 표시 확인
+## 기능 테스트 (Phase 4)
+- [ ] **검색 기능**:
+  - [ ] 검색창에 "스타벅스 명동" 입력
+  - [ ] 검색 결과 정확도순 표시 확인
+  - [ ] 결과 선택 → 지도에 마커 표시 확인
+
+- [ ] **InfoWindow 표시**:
+  - [ ] 가게명, 주소, 전화번호 표시
+  - [ ] "📷 네이버 지도에서 보기" 버튼 클릭 → 새 탭에서 네이버 지도 열기
+    - [ ] 실시간 사진, 후기, 메뉴 확인 가능
+  - [ ] "➕ 후보지 등록" 버튼 클릭 → 모달 열기
+
+- [ ] **후보지 등록**:
+  - [ ] 모달에서 자동 입력 정보 확인 (가게명, 주소, 좌표, 전화번호)
+  - [ ] 카테고리 선택 후 메모 입력
+  - [ ] "추가" 버튼 클릭
+  - [ ] Supabase의 locations 테이블에 저장 확인
+
+- [ ] **지도 마커 표시**:
+  - [ ] 계정 색깔의 핀 표시 (🔴 creator / 🔵 member)
+  - [ ] 후보지 목록에 자동 추가
+
+- [ ] **투표 및 상태 변경**:
+  - [ ] A 사용자가 찬성 투표 → 마커 색상 유지 (기본 색)
+  - [ ] B 사용자도 찬성 투표 → 마커 색상 변경 (초록 핀)
+  - [ ] LocationCard에 "✅" 표시 확인
+  - [ ] 반대 투표 시나리오 → 검은 핀 + "❌" 표시 확인
 
 ---
 
@@ -829,11 +892,21 @@ Phase 2: ██░░░░░░░░ 20% (2/10 완료)
 
 ---
 
-## 📋 투표 시스템 및 마커 색상 설계 (Phase 4-6)
+## 📋 검색 기반 후보지 등록 및 투표 시스템 (Phase 3-6)
 
-### 흐름 요약
-1. **네이버 지도에서 장소 클릭** → InfoWindow 표시 → **"후보지 등록" 버튼**
-2. **후보지 등록**:
+### 전체 흐름 요약
+1. **특정 가게 검색** (핵심 기능):
+   - 검색창에 "스타벅스 명동" 또는 "강남 한식" 입력
+   - 네이버 Place Search API → 정확도순 결과 (가게명, 주소, 좌표, 전화, 링크)
+   - 원하는 가게 선택
+
+2. **InfoWindow 표시 및 네이버 지도 확인**:
+   - 지도에 마커 표시
+   - InfoWindow: 가게명, 주소, 전화번호
+   - **"📷 네이버 지도에서 보기" 버튼** → 새 탭에서 실시간 사진/후기/메뉴 확인
+   - **"➕ 후보지 등록" 버튼** → 모달 열기
+
+3. **후보지 등록**:
    - 사용자 계정에 맞는 색상 핀 표시 (🔴 creator / 🔵 member)
    - locations 테이블에 저장
    - 후보지 목록에 자동 추가
