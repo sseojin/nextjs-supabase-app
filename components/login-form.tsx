@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRef<"div">) {
   const [email, setEmail] = useState("");
@@ -18,6 +18,21 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
+  const [returnUrl, setReturnUrl] = useState<string | null>(null);
+
+  // URL의 returnUrl 파라미터를 클라이언트에서만 읽기
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const url = params.get("returnUrl");
+      setReturnUrl(url);
+    }
+  }, []);
+
+  // 로그인 후 이동할 페이지 결정
+  const getRedirectUrl = () => {
+    return returnUrl || "/dashboard";
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,8 +46,8 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
         password,
       });
       if (error) throw error;
-      // 로그인 성공 시 대시보드(캘린더)로 이동
-      router.push("/dashboard");
+      // 로그인 성공 시 returnUrl로 이동하거나 대시보드로 이동
+      router.push(getRedirectUrl());
     } catch (error: unknown) {
       const errorMessage = translateAuthError(error);
       setError(errorMessage);
@@ -49,7 +64,7 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
    * 2. 브라우저를 Google 로그인 페이지로 리다이렉트
    * 3. 사용자가 Google에서 로그인 및 권한 승인
    * 4. Google이 /auth/callback?code=xxx로 리다이렉트
-   * 5. callback 라우트에서 세션 생성 및 /protected로 이동
+   * 5. callback 라우트에서 세션 생성 및 returnUrl로 이동
    */
   const handleGoogleLogin = async () => {
     const supabase = createClient();
@@ -57,11 +72,15 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
     setError(null);
 
     try {
+      // returnUrl이 있으면 callback에 전달
+      const redirectUrl = getRedirectUrl();
+      const nextParam = redirectUrl === "/dashboard" ? "/dashboard" : redirectUrl;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          // 콜백 URL: OAuth 완료 후 대시보드(캘린더)로 이동
-          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+          // 콜백 URL: OAuth 완료 후 returnUrl로 이동
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextParam)}`,
         },
       });
 

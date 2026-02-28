@@ -18,21 +18,6 @@ function extractUserIdFromToken(token: string): string | null {
   }
 }
 
-/**
- * 인증 클라이언트 생성 (쿠키 또는 Authorization 헤더)
- */
-async function getAuthenticatedClient(request: Request) {
-  const authHeader = request.headers.get('authorization');
-
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    // Authorization 헤더가 있으면 해당 토큰 사용
-    const token = authHeader.slice(7); // 'Bearer ' 제거
-    return createClientWithAuth(token);
-  }
-
-  // 아니면 쿠키 기반 클라이언트 사용
-  return await createClient();
-}
 
 /**
  * 요청에서 사용자 ID 추출

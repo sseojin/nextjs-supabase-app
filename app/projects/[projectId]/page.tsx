@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { ProjectWithMembers } from "@/lib/types/project";
+import ShareLinkButton from "@/components/projects/ShareLinkButton";
+import MemberList from "@/components/projects/MemberList";
 
 /**
  * 프로젝트 상세 페이지
@@ -257,61 +259,17 @@ export default function ProjectDetailPage() {
           )}
         </div>
 
+        {/* 공유 링크 버튼 */}
+        {project.share_link && (
+          <ShareLinkButton projectId={project.id} shareLink={project.share_link} />
+        )}
+
         {/* 멤버 목록 */}
-        <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="h-5 w-5 text-slate-600" />
-            <h2 className="text-base font-semibold text-slate-900">멤버</h2>
-            <span className="ml-auto text-sm text-slate-600">{project.members.length}명</span>
-          </div>
+        <MemberList members={project.members} />
 
-          <div className="space-y-3">
-            {project.members.map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg"
-              >
-                {/* 색상 배지 */}
-                <div
-                  className="w-4 h-4 rounded"
-                  style={{ backgroundColor: member.display_color }}
-                  title={member.display_color}
-                />
-
-                {/* 멤버 정보 */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-900 font-medium truncate">
-                    {member.user_id}
-                  </p>
-                  <p className="text-xs text-slate-600">
-                    {member.role === "creator" ? "생성자" : "참여자"}
-                  </p>
-                </div>
-
-                {/* 역할 배지 */}
-                <span
-                  className={`
-                    px-2 py-1 rounded text-xs font-medium whitespace-nowrap
-                    ${
-                      member.role === "creator"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-blue-100 text-blue-700"
-                    }
-                  `}
-                >
-                  {member.role === "creator" ? "Creator" : "Member"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 주석: Phase 2/3 기능 예정 */}
+        {/* 주석: Phase 3 기능 예정 */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-700">
-            💡 <strong>Phase 2:</strong> 공유 링크 복사 및 참여 기능
-          </p>
-          <p className="text-sm text-blue-700 mt-1">
             💡 <strong>Phase 3:</strong> 네이버 지도 및 후보지 관리
           </p>
         </div>

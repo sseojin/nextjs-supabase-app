@@ -109,7 +109,7 @@ Phase 9: UI/UX 개선 및 테스트 (2일)
 
 ## 캘린더 메인 페이지 구현
 - [x] `app/dashboard/page.tsx` 생성
-- [ ] 로그인 필요 확인 (미들웨어 활용)
+- [x] 로그인 필요 확인 (미들웨어 활용)
 - [x] `app/dashboard/layout.tsx` 생성 (대시보드 전용 레이아웃)
 
 ## 캘린더 컴포넌트 구현 (모바일 우선)
@@ -119,9 +119,9 @@ Phase 9: UI/UX 개선 및 테스트 (2일)
     - [x] 버튼 크기: 최소 44x44px (터치 친화적)
   - [x] date-fns로 월 계산 로직 작성
   - [x] 7x6 날짜 그리드 렌더링
-    - [ ] 각 셀 최소 높이: 50px (터치 타겟 충분히 크게)
+    - [x] 각 셀 최소 높이: 50px (터치 타겟 충분히 크게)
     - [x] 여백: 4-8px (셀 간 간격)
-  - [ ] 이전/다음 달 날짜 회색 처리
+  - [x] 이전/다음 달 날짜 회색 처리
   - [x] 요일 헤더 (일~토) 렌더링
     - [x] 폰트 크기: 14px 이상
 
@@ -129,24 +129,24 @@ Phase 9: UI/UX 개선 및 테스트 (2일)
   - [x] 날짜 숫자 표시
     - [x] 폰트 크기: 16px 이상
   - [x] 프로젝트 배지 표시 영역 확보
-    - [ ] 배지 높이: 최소 24px
+    - [x] 배지 높이: 최소 24px
   - [x] 빈 날짜 클릭 가능하게 설정
   - [x] 프로젝트 배지 클릭 가능하게 설정
-    - [ ] 터치 피드백 (하이라이트 또는 스케일 효과)
-  - [ ] 활성 상태 시각적 표시 (배경색 변경)
+    - [x] 터치 피드백 (하이라이트 또는 스케일 효과)
+  - [x] 활성 상태 시각적 표시 (배경색 변경)
 
-- [ ] `components/calendar/Calendar.tsx` 내부 프로젝트 배지 렌더링
-  - [ ] 빨간색 배지 스타일 (creator)
-  - [ ] 파란색 배지 스타일 (member)
-  - [ ] 배지에 프로젝트 제목 표시 (첫 8-10자, 모바일 폭 고려)
-  - [ ] 여러 프로젝트 시 최대 2개 표시, "+N" 처리
-    - [ ] 배지는 한 줄에 정렬되도록 (줄 바꿈 방지)
+- [x] `components/calendar/Calendar.tsx` 내부 프로젝트 배지 렌더링
+  - [x] 빨간색 배지 스타일 (creator)
+  - [x] 파란색 배지 스타일 (member)
+  - [x] 배지에 프로젝트 제목 표시 (첫 8-10자, 모바일 폭 고려)
+  - [x] 여러 프로젝트 시 최대 2개 표시, "+N" 처리
+    - [x] 배지는 한 줄에 정렬되도록 (줄 바꿈 방지)
 
 ## 프로젝트 생성 모달 구현 (모바일 친화)
 - [x] `components/calendar/CreateProjectModal.tsx` 생성
   - [x] 모달 기본 구조 (shadcn/ui Dialog 활용)
-    - [ ] 모바일: 전체 높이의 70-80% 사용 (스크롤 가능)
-    - [ ] 상단 드래그 바 제공 (모바일 UI 관례)
+    - [x] 모바일: 전체 높이의 70-80% 사용 (스크롤 가능)
+    - [x] 상단 드래그 바 제공 (모바일 UI 관례)
   - [x] 제목: "프로젝트 생성"
   - [x] 선택된 날짜 표시 (읽기 전용)
   - [x] 프로젝트 제목 입력 필드
@@ -164,8 +164,8 @@ Phase 9: UI/UX 개선 및 테스트 (2일)
   - [x] 날짜 정보를 모달에 전달
 
 ## 페이지 연동 테스트
-- [ ] 랜딩 페이지에서 로그인 버튼 클릭 → `/auth/login` 이동 확인
-- [ ] 로그인 후 자동으로 `/dashboard`로 이동 확인
+- [x] 랜딩 페이지에서 로그인 버튼 클릭 → `/auth/login` 이동 확인
+- [x] 로그인 후 자동으로 `/dashboard`로 이동 확인
 - [x] 캘린더 페이지 렌더링 확인 (로컬 상태로 테스트 가능)
 - [x] 월 이동 버튼 작동 확인 (로컬 상태로 테스트 가능)
 - [x] 날짜 셀 클릭 → 모달 열기 확인 (로컬 상태로 테스트 가능)
@@ -175,81 +175,81 @@ Phase 9: UI/UX 개선 및 테스트 (2일)
 # 🎯 Phase 1: 데이터베이스 + 프로젝트 생성 (2일)
 
 ## 데이터베이스 스키마 생성
-- [ ] `supabase/migrations/01_initial_schema.sql` 생성
-- [ ] `projects` 테이블 생성 (id, title, date, creator_id, share_link, status, created_at, updated_at)
-- [ ] `project_members` 테이블 생성
-- [ ] `locations` 테이블 생성
-- [ ] `votes` 테이블 생성
-- [ ] 각 테이블에 인덱스 추가
-- [ ] RLS (Row Level Security) 정책 작성
-- [ ] Realtime publication 설정
-- [ ] Supabase에 마이그레이션 실행 및 확인
+- [x] `supabase/migrations/01_initial_schema.sql` 생성
+- [x] `projects` 테이블 생성 (id, title, date, creator_id, share_link, status, created_at, updated_at)
+- [x] `project_members` 테이블 생성
+- [x] `locations` 테이블 생성
+- [x] `votes` 테이블 생성
+- [x] 각 테이블에 인덱스 추가
+- [x] RLS (Row Level Security) 정책 작성
+- [x] Realtime publication 설정
+- [x] Supabase에 마이그레이션 실행 및 확인
 
 ## TypeScript 타입 정의
-- [ ] `lib/types/project.ts` 생성
-  - [ ] `Project` 타입 정의 (id, title, date, creator_id, share_link, status, created_at, updated_at)
-  - [ ] `ProjectMember` 타입 정의
-  - [ ] `ProjectWithMembers` 타입 정의
+- [x] `lib/types/project.ts` 생성
+  - [x] `Project` 타입 정의 (id, title, date, creator_id, share_link, status, created_at, updated_at)
+  - [x] `ProjectMember` 타입 정의
+  - [x] `ProjectWithMembers` 타입 정의
 
-- [ ] `lib/types/location.ts` 생성
-  - [ ] `Location` 타입 정의
+- [x] `lib/types/location.ts` 생성
+  - [x] `Location` 타입 정의
 
-- [ ] `lib/types/vote.ts` 생성
-  - [ ] `Vote` 타입 정의
+- [x] `lib/types/vote.ts` 생성
+  - [x] `Vote` 타입 정의
 
 ## 프로젝트 쿼리 함수 구현
-- [ ] `lib/supabase/queries/projects.ts` 생성
-  - [ ] `getProjectsByMonth(year, month)` - 월별 프로젝트 조회
-  - [ ] `getProjectById(projectId)` - 프로젝트 상세 조회
-  - [ ] `createProject(title, date)` - 프로젝트 생성
-  - [ ] `deleteProject(projectId)` - 프로젝트 삭제
-  - [ ] 에러 처리 추가
+- [x] `lib/supabase/queries/projects.ts` 생성
+  - [x] `getProjectsByMonth(year, month)` - 월별 프로젝트 조회
+  - [x] `getProjectById(projectId)` - 프로젝트 상세 조회
+  - [x] `createProject(title, date)` - 프로젝트 생성
+  - [x] `deleteProject(projectId)` - 프로젝트 삭제
+  - [x] 에러 처리 추가
 
 ## 프로젝트 API 라우트 구현
-- [ ] `app/api/projects/route.ts` 생성
-  - [ ] `GET` 구현 (월별 프로젝트 목록 조회)
-    - [ ] 쿼리 파라미터: year, month
-    - [ ] 인증 확인
-    - [ ] 사용자가 참여한 프로젝트만 반환
-  - [ ] `POST` 구현 (프로젝트 생성)
-    - [ ] 요청 본문: title, date
-    - [ ] 공유 링크 자동 생성 (nanoid 사용)
-    - [ ] project_members에 creator 추가
-    - [ ] display_color 설정 (creator: #FF0000)
+- [x] `app/api/projects/route.ts` 생성
+  - [x] `GET` 구현 (월별 프로젝트 목록 조회)
+    - [x] 쿼리 파라미터: year, month
+    - [x] 인증 확인
+    - [x] 사용자가 참여한 프로젝트만 반환
+  - [x] `POST` 구현 (프로젝트 생성)
+    - [x] 요청 본문: title, date
+    - [x] 공유 링크 자동 생성 (nanoid 사용)
+    - [x] project_members에 creator 추가
+    - [x] display_color 설정 (creator: #FF0000)
 
-- [ ] `app/api/projects/[projectId]/route.ts` 생성
-  - [ ] `GET` 구현 (프로젝트 상세 조회)
-  - [ ] `DELETE` 구현 (프로젝트 삭제, creator만 가능)
+- [x] `app/api/projects/[projectId]/route.ts` 생성
+  - [x] `GET` 구현 (프로젝트 상세 조회)
+  - [x] `DELETE` 구현 (프로젝트 삭제, creator만 가능)
 
 ## 프로젝트 생성 모달 로직 연결
-- [ ] `components/calendar/CreateProjectModal.tsx`에 API 호출 추가
-  - [ ] 생성 버튼 클릭 시 `POST /api/projects` 호출
-  - [ ] 로딩 상태 표시
-  - [ ] 성공 시 모달 닫기 및 캘린더 새로고침
-  - [ ] 에러 시 토스트 알림 표시
+- [x] `components/calendar/CreateProjectModal.tsx`에 API 호출 추가
+  - [x] 생성 버튼 클릭 시 `POST /api/projects` 호출
+  - [x] 로딩 상태 표시
+  - [x] 성공 시 모달 닫기 및 캘린더 새로고침
+  - [x] 에러 시 토스트 알림 표시
 
 ## 캘린더에 프로젝트 배지 표시
-- [ ] Calendar 컴포넌트에서 `getProjectsByMonth` 호출
-  - [ ] 월별 프로젝트 데이터 조회
-  - [ ] 로딩 상태 처리
-  - [ ] 에러 처리
+- [x] Calendar 컴포넌트에서 `getProjectsByMonth` 호출
+  - [x] 월별 프로젝트 데이터 조회
+  - [x] 로딩 상태 처리
+  - [x] 에러 처리
 
-- [ ] DateCell 컴포넌트에 프로젝트 배지 전달 및 렌더링
-  - [ ] 프로젝트 role 확인 (creator/member)
-  - [ ] 배지 색상 결정 (빨강/파랑)
-  - [ ] 프로젝트 제목 표시
+- [x] DateCell 컴포넌트에 프로젝트 배지 전달 및 렌더링
+  - [x] 프로젝트 role 확인 (creator/member)
+  - [x] 배지 색상 결정 (빨강/파랑)
+  - [x] 프로젝트 제목 표시
 
 ## 프로젝트 배지 클릭 시 동작
-- [ ] DateCell에서 배지 클릭 시 `/projects/[projectId]`로 이동 구현
-  - [ ] Next.js router.push() 활용
-  - [ ] 프로젝트 ID 전달
+- [x] DateCell에서 배지 클릭 시 `/projects/[projectId]`로 이동 구현
+  - [x] Next.js router.push() 활용
+  - [x] 프로젝트 ID 전달
 
 ## 기능 테스트
-- [ ] 모달에서 프로젝트 제목 입력 후 생성 버튼 클릭
-- [ ] Supabase에 프로젝트 데이터 저장 확인
-- [ ] 캘린더 새로고침 시 프로젝트 배지 표시 확인
-- [ ] 배지 색상 올바르게 표시 확인 (빨강/파랑)
-- [ ] 배지 클릭 → 프로젝트 상세 페이지 이동 확인
+- [x] 모달에서 프로젝트 제목 입력 후 생성 버튼 클릭
+- [x] Supabase에 프로젝트 데이터 저장 확인
+- [x] 캘린더 새로고침 시 프로젝트 배지 표시 확인
+- [x] 배지 색상 올바르게 표시 확인 (빨강/파랑)
+- [x] 배지 클릭 → 프로젝트 상세 페이지 이동 확인
 
 ---
 
@@ -844,6 +844,28 @@ Phase 2: ██░░░░░░░░ 20% (2/10 완료)
 
 ---
 
-**마지막 업데이트**: 2024년
-**상태**: 개발 중
-**다음 단계**: Phase 0 시작
+---
+
+## 📈 진행 상황
+
+### 완료된 페이즈
+- [x] **Phase 0** (100%) - 랜딩 페이지 + 캘린더 구현 완료
+- [x] **Phase 1** (100%) - 데이터베이스 + 프로젝트 생성 완료
+
+### 진행 중인 페이즈
+- [ ] **Phase 2** (0%) - 공유 링크 생성 + 참여 (예정)
+
+### 다음 페이즈
+- [ ] Phase 3: 네이버 지도 기본 구현
+- [ ] Phase 4: 후보지 관리 및 마커 표시
+- [ ] Phase 5: Realtime 동기화 (마커)
+- [ ] Phase 6: 투표 시스템
+- [ ] Phase 7: Realtime 동기화 (투표)
+- [ ] Phase 8: 최종 장소 목록
+- [ ] Phase 9: UI/UX 개선 및 테스트
+
+---
+
+**마지막 업데이트**: 2026년 2월 27일
+**상태**: Phase 1 완료 → Phase 2 준비 중
+**다음 단계**: Phase 2 공유 링크 및 참여 기능 구현

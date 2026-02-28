@@ -1,213 +1,222 @@
 {
   "tasks": [
     {
-      "id": "cd1b7e34-b9bc-4bc8-9bbd-081560b6a0fd",
-      "name": "패키지 설치 및 폴더 구조 생성",
-      "description": "date-fns, sonner 설치 및 shadcn/ui Dialog 추가. 폴더 생성",
-      "notes": "필수 라이브러리",
+      "id": "aab77905-cdd6-4a21-9c6c-3c5ba77ea8f4",
+      "name": "getProjectByShareLink 쿼리 함수 추가",
+      "description": "lib/supabase/queries/projects.ts에 공유 링크(share_link)로 프로젝트를 조회하는 함수를 추가합니다. share_link 유효성 검증, 프로젝트 존재 여부 확인, 에러 처리를 포함하며, 프로젝트를 찾지 못하면 명확한 에러 메시지를 throw합니다.",
+      "notes": "기존 getProjectById 함수를 참고하여 동일한 스타일 유지. maybeSingle() 사용하여 행 없을 때 처리",
       "status": "pending",
       "dependencies": [],
-      "createdAt": "2026-02-26T13:49:21.537Z",
-      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "createdAt": "2026-02-27T06:43:10.809Z",
+      "updatedAt": "2026-02-27T06:43:10.809Z",
       "relatedFiles": [
         {
-          "path": "package.json",
+          "path": "lib/supabase/queries/projects.ts",
+          "type": "REFERENCE",
+          "description": "기존 쿼리 함수 패턴 참고",
+          "lineStart": 210,
+          "lineEnd": 307
+        }
+      ],
+      "implementationGuide": "함수 시그니처: getProjectByShareLink(shareLink: string): Promise<Project>\n\n구현 단계:\n1. share_link 유효성 검증 (10자, 영숫자)\n2. Supabase에서 share_link로 프로젝트 조회\n3. 프로젝트 없으면 '공유 링크를 찾을 수 없습니다' throw\n4. ProjectMembers와 조인하여 멤버 정보 포함 (선택)\n5. Project 객체로 변환 후 반환\n\n에러 처리: try-catch로 DB 에러 명확히 처리",
+      "verificationCriteria": "함수가 올바르게 share_link로 프로젝트를 조회하고, 존재하지 않는 링크는 에러를 throw하며, 타입이 Project를 반환하는지 확인",
+      "analysisResult": "Phase 2: 공유 링크 생성 및 참여 기능 구현\\n\\n기존 Phase 1에서 공유 링크(share_link)가 이미 projects 테이블에 저장되고 있으므로, Phase 2는 이를 활용하여 공유 링크를 통한 참여 메커니즘을 구현합니다.\\n\\n핵심 기능:\\n1. 공유 링크로 프로젝트 조회 (getProjectByShareLink)\\n2. 사용자 멤버십 추가 (joinProject) - 최대 2명 제한\\n3. 참여 API 라우트 (/api/projects/[projectId]/join)\\n4. 참여 페이지 (/join/[shareLink])\\n5. UI 컴포넌트 (ShareLinkButton, MemberList)\\n\\n아키텍처 준수:\\n- API 라우트: 기존 POST /api/projects 패턴 동일 (JWT/쿠키 인증)\\n- 쿼리 함수: 기존 getProjectById 패턴 동일 (try-catch, throw)\\n- 컴포넌트: Server/Client 분리 준수\\n- 타입: Project, ProjectMember 재사용\\n- RLS 정책: 기존 설정 재활용\\n\\n제약 조건:\\n- 최대 2명 멤버 (creator + member)\\n- 중복 참여 방지\\n- 공유 링크 10자 (nanoid 기존 생성)\\n- 모바일 우선 반응형\\n- Realtime은 Phase 5에서 추가"
+    },
+    {
+      "id": "8ad1bfa1-f06c-4dae-b710-d9459120f4df",
+      "name": "joinProject 쿼리 함수 추가",
+      "description": "lib/supabase/queries/projects.ts에 사용자를 프로젝트에 멤버로 추가하는 함수를 추가합니다. 함수는 다음을 검증합니다: (1) 프로젝트 존재 여부, (2) 멤버 수 제한(최대 2명), (3) 중복 참여 방지. 멤버 추가 시 role='member', display_color='#0000FF'로 설정합니다.",
+      "notes": "멤버 수 확인은 project_members 테이블을 COUNT 쿼리로 처리. 중복 검사는 user_id + project_id 복합 키 활용",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "aab77905-cdd6-4a21-9c6c-3c5ba77ea8f4"
+        }
+      ],
+      "createdAt": "2026-02-27T06:43:10.809Z",
+      "updatedAt": "2026-02-27T06:43:10.809Z",
+      "relatedFiles": [
+        {
+          "path": "lib/supabase/queries/projects.ts",
           "type": "TO_MODIFY",
-          "description": "라이브러리 추가"
+          "description": "새로운 함수 추가",
+          "lineStart": 350,
+          "lineEnd": 357
         }
       ],
-      "implementationGuide": "npm install date-fns sonner\nnpx shadcn@latest add dialog\n폴더 생성",
-      "verificationCriteria": "패키지 설치 확인"
+      "implementationGuide": "함수 시그니처: joinProject(projectId: string, userId: string): Promise<ProjectMember>\n\n구현 단계:\n1. 프로젝트 존재 여부 확인\n2. SELECT COUNT(*)로 현재 멤버 수 확인\n3. 멤버 수가 2명 이상이면 '최대 2명까지만 참여 가능합니다' throw\n4. WHERE project_id AND user_id로 중복 참여 확인\n5. 이미 참여했으면 '이미 참여한 프로젝트입니다' throw\n6. project_members INSERT: role='member', display_color='#0000FF'\n7. ProjectMember 객체 반환\n\n에러 처리: 409(Conflict) 상황 명확히 하기",
+      "verificationCriteria": "멤버 추가 성공, 멤버 수 제한 확인, 중복 참여 방지, 에러 메시지 명확함",
+      "analysisResult": "Phase 2: 공유 링크 생성 및 참여 기능 구현\\n\\n기존 Phase 1에서 공유 링크(share_link)가 이미 projects 테이블에 저장되고 있으므로, Phase 2는 이를 활용하여 공유 링크를 통한 참여 메커니즘을 구현합니다.\\n\\n핵심 기능:\\n1. 공유 링크로 프로젝트 조회 (getProjectByShareLink)\\n2. 사용자 멤버십 추가 (joinProject) - 최대 2명 제한\\n3. 참여 API 라우트 (/api/projects/[projectId]/join)\\n4. 참여 페이지 (/join/[shareLink])\\n5. UI 컴포넌트 (ShareLinkButton, MemberList)\\n\\n아키텍처 준수:\\n- API 라우트: 기존 POST /api/projects 패턴 동일 (JWT/쿠키 인증)\\n- 쿼리 함수: 기존 getProjectById 패턴 동일 (try-catch, throw)\\n- 컴포넌트: Server/Client 분리 준수\\n- 타입: Project, ProjectMember 재사용\\n- RLS 정책: 기존 설정 재활용\\n\\n제약 조건:\\n- 최대 2명 멤버 (creator + member)\\n- 중복 참여 방지\\n- 공유 링크 10자 (nanoid 기존 생성)\\n- 모바일 우선 반응형\\n- Realtime은 Phase 5에서 추가"
     },
     {
-      "id": "c4c2b4b0-25fd-45ea-aa87-f8dd24a6fbaf",
-      "name": "프로젝트 타입 정의",
-      "description": "lib/types/project.ts 생성",
-      "notes": "로컬 상태용",
+      "id": "09f37da6-1e58-4713-85de-8053e3537780",
+      "name": "POST /api/projects/[projectId]/join API 라우트 구현",
+      "description": "app/api/projects/[projectId]/join/route.ts 파일을 생성하여 사용자가 공유 링크를 통해 프로젝트에 참여합니다. 요청 본문에 shareLink를 받고, 인증 확인, shareLink 검증, joinProject 쿼리 호출, 에러 시 명확한 상태 코드 반환을 처리합니다.",
+      "notes": "기존 POST /api/projects 라우트의 인증 패턴 참고. extractUserIdFromToken 함수 재사용",
       "status": "pending",
       "dependencies": [
         {
-          "taskId": "cd1b7e34-b9bc-4bc8-9bbd-081560b6a0fd"
+          "taskId": "8ad1bfa1-f06c-4dae-b710-d9459120f4df"
         }
       ],
-      "createdAt": "2026-02-26T13:49:21.537Z",
-      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "createdAt": "2026-02-27T06:43:10.809Z",
+      "updatedAt": "2026-02-27T06:43:10.809Z",
       "relatedFiles": [
         {
-          "path": "lib/types/project.ts",
-          "type": "CREATE",
-          "description": "타입"
-        }
-      ],
-      "implementationGuide": "Project, DateCellData 타입 정의",
-      "verificationCriteria": "타입 정의 완료"
-    },
-    {
-      "id": "868912dc-8d4c-4b4f-9620-c8142022f226",
-      "name": "캘린더 유틸리티 함수 구현",
-      "description": "lib/utils/calendar.ts 생성",
-      "notes": "한국어 포맷",
-      "status": "pending",
-      "dependencies": [
-        {
-          "taskId": "c4c2b4b0-25fd-45ea-aa87-f8dd24a6fbaf"
-        }
-      ],
-      "createdAt": "2026-02-26T13:49:21.537Z",
-      "updatedAt": "2026-02-26T13:49:21.537Z",
-      "relatedFiles": [
-        {
-          "path": "lib/utils/calendar.ts",
-          "type": "CREATE",
-          "description": "유틸"
-        }
-      ],
-      "implementationGuide": "date-fns 활용한 날짜 계산",
-      "verificationCriteria": "함수 동작"
-    },
-    {
-      "id": "5d2d9974-4fe8-4bb3-bfbb-0d99150afce0",
-      "name": "랜딩 페이지 수정",
-      "description": "app/page.tsx 수정",
-      "notes": "모바일 우선",
-      "status": "pending",
-      "dependencies": [
-        {
-          "taskId": "cd1b7e34-b9bc-4bc8-9bbd-081560b6a0fd"
-        }
-      ],
-      "createdAt": "2026-02-26T13:49:21.537Z",
-      "updatedAt": "2026-02-26T13:49:21.537Z",
-      "relatedFiles": [
-        {
-          "path": "app/page.tsx",
-          "type": "TO_MODIFY",
-          "description": "랜딩"
-        }
-      ],
-      "implementationGuide": "Date Planner 제목, 로그인/회원가입 버튼",
-      "verificationCriteria": "버튼 크기"
-    },
-    {
-      "id": "44e14843-bffb-4844-a6b0-6ad736d7782b",
-      "name": "캘린더 페이지 레이아웃",
-      "description": "app/dashboard/ 생성",
-      "notes": "Server Component",
-      "status": "pending",
-      "dependencies": [
-        {
-          "taskId": "5d2d9974-4fe8-4bb3-bfbb-0d99150afce0"
-        }
-      ],
-      "createdAt": "2026-02-26T13:49:21.537Z",
-      "updatedAt": "2026-02-26T13:49:21.537Z",
-      "relatedFiles": [
-        {
-          "path": "app/dashboard/layout.tsx",
-          "type": "CREATE",
-          "description": "레이아웃"
-        }
-      ],
-      "implementationGuide": "인증 확인 후 캘린더 렌더링",
-      "verificationCriteria": "인증 리다이렉트"
-    },
-    {
-      "id": "d7ef71d1-9e32-4012-882a-1dee2cca38ca",
-      "name": "Calendar 메인 컴포넌트",
-      "description": "components/calendar/Calendar.tsx",
-      "notes": "로컬 상태",
-      "status": "pending",
-      "dependencies": [
-        {
-          "taskId": "868912dc-8d4c-4b4f-9620-c8142022f226"
+          "path": "app/api/projects/route.ts",
+          "type": "REFERENCE",
+          "description": "API 라우트 패턴 참고",
+          "lineStart": 1,
+          "lineEnd": 50
         },
         {
-          "taskId": "44e14843-bffb-4844-a6b0-6ad736d7782b"
+          "path": "app/api/projects/[projectId]/route.ts",
+          "type": "REFERENCE",
+          "description": "프로젝트 ID 기반 라우트 구조"
         }
       ],
-      "createdAt": "2026-02-26T13:49:21.537Z",
-      "updatedAt": "2026-02-26T13:49:21.537Z",
-      "relatedFiles": [
-        {
-          "path": "components/calendar/Calendar.tsx",
-          "type": "CREATE",
-          "description": "컴포넌트"
-        }
-      ],
-      "implementationGuide": "7x6 그리드, 월 이동, 상태 관리",
-      "verificationCriteria": "그리드 렌더링"
+      "implementationGuide": "API 엔드포인트: POST /api/projects/[projectId]/join\n\n요청 본문:\n{\n  \"shareLink\": \"string (10자 공유 링크)\"\n}\n\n응답 (성공, 201):\n{\n  \"id\": \"string\",\n  \"project_id\": \"string\",\n  \"user_id\": \"string\",\n  \"role\": \"member\",\n  \"display_color\": \"#0000FF\",\n  \"joined_at\": \"ISO 8601 datetime\"\n}\n\n응답 (에러):\n- 400: shareLink 유효성 검사 실패\n- 401: 인증 필요\n- 409: 멤버 수 제한 또는 중복 참여\n- 500: 서버 에러\n\n구현:\n1. JWT/쿠키로 사용자 인증\n2. 요청 본문에서 shareLink 추출\n3. joinProject 쿼리 호출\n4. 성공하면 ProjectMember 객체 반환 (201)\n5. 에러 시 명확한 메시지와 상태 코드 반환",
+      "verificationCriteria": "API 호출 시 정상적으로 멤버 추가, 에러 상황별 올바른 상태 코드 반환",
+      "analysisResult": "Phase 2: 공유 링크 생성 및 참여 기능 구현\\n\\n기존 Phase 1에서 공유 링크(share_link)가 이미 projects 테이블에 저장되고 있으므로, Phase 2는 이를 활용하여 공유 링크를 통한 참여 메커니즘을 구현합니다.\\n\\n핵심 기능:\\n1. 공유 링크로 프로젝트 조회 (getProjectByShareLink)\\n2. 사용자 멤버십 추가 (joinProject) - 최대 2명 제한\\n3. 참여 API 라우트 (/api/projects/[projectId]/join)\\n4. 참여 페이지 (/join/[shareLink])\\n5. UI 컴포넌트 (ShareLinkButton, MemberList)\\n\\n아키텍처 준수:\\n- API 라우트: 기존 POST /api/projects 패턴 동일 (JWT/쿠키 인증)\\n- 쿼리 함수: 기존 getProjectById 패턴 동일 (try-catch, throw)\\n- 컴포넌트: Server/Client 분리 준수\\n- 타입: Project, ProjectMember 재사용\\n- RLS 정책: 기존 설정 재활용\\n\\n제약 조건:\\n- 최대 2명 멤버 (creator + member)\\n- 중복 참여 방지\\n- 공유 링크 10자 (nanoid 기존 생성)\\n- 모바일 우선 반응형\\n- Realtime은 Phase 5에서 추가"
     },
     {
-      "id": "a4c643df-694f-4961-83be-12bf36ab6cc9",
-      "name": "DateCell 컴포넌트",
-      "description": "components/calendar/DateCell.tsx",
-      "notes": "배지 최대 2개",
+      "id": "6a0f56f2-3151-4b95-9549-45d95faa8f73",
+      "name": "/app/join/[shareLink] 참여 페이지 생성",
+      "description": "app/join/[shareLink]/page.tsx 파일을 생성합니다. 서버 컴포넌트로 공유 링크로 프로젝트를 조회하고, 미로그인 사용자는 /auth/login으로 리다이렉트, 유효하지 않은 링크는 404를 표시합니다. 프로젝트 정보를 표시하고 클라이언트 컴포넌트를 렌더링합니다.",
+      "notes": "app/dashboard/page.tsx를 참고하여 인증 패턴 따르기. notFound()는 'next/navigation'에서 import",
       "status": "pending",
       "dependencies": [
         {
-          "taskId": "d7ef71d1-9e32-4012-882a-1dee2cca38ca"
+          "taskId": "aab77905-cdd6-4a21-9c6c-3c5ba77ea8f4"
         }
       ],
-      "createdAt": "2026-02-26T13:49:21.537Z",
-      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "createdAt": "2026-02-27T06:43:10.809Z",
+      "updatedAt": "2026-02-27T06:43:10.809Z",
       "relatedFiles": [
         {
-          "path": "components/calendar/DateCell.tsx",
-          "type": "CREATE",
-          "description": "셀"
+          "path": "app/dashboard/page.tsx",
+          "type": "REFERENCE",
+          "description": "인증 및 레이아웃 패턴"
         }
       ],
-      "implementationGuide": "배지 표시, 색상 구분",
-      "verificationCriteria": "배지 표시"
+      "implementationGuide": "파일: app/join/[shareLink]/page.tsx\n\n구조 (서버 컴포넌트):\n1. 쿠키에서 인증 확인\n2. 미로그인이면 redirect('/auth/login')\n3. getProjectByShareLink(shareLink) 호출\n4. 프로젝트 없으면 notFound()\n5. 프로젝트 정보 표시\n6. JoinProjectClient 컴포넌트 렌더링 (props: projectId, shareLink)\n\n레이아웃:\n- 프로젝트 제목 (h1)\n- 프로젝트 날짜\n- 생성자 정보\n- 멤버 수 표시\n- JoinProjectClient 버튼\n\nCSS: Tailwind (모바일 우선, 중앙 정렬, 충분한 패딩)",
+      "verificationCriteria": "페이지가 올바르게 공유 링크로 프로젝트를 조회, 미로그인 사용자는 로그인 페이지로 리다이렉트, 유효하지 않은 링크는 404 표시",
+      "analysisResult": "Phase 2: 공유 링크 생성 및 참여 기능 구현\\n\\n기존 Phase 1에서 공유 링크(share_link)가 이미 projects 테이블에 저장되고 있으므로, Phase 2는 이를 활용하여 공유 링크를 통한 참여 메커니즘을 구현합니다.\\n\\n핵심 기능:\\n1. 공유 링크로 프로젝트 조회 (getProjectByShareLink)\\n2. 사용자 멤버십 추가 (joinProject) - 최대 2명 제한\\n3. 참여 API 라우트 (/api/projects/[projectId]/join)\\n4. 참여 페이지 (/join/[shareLink])\\n5. UI 컴포넌트 (ShareLinkButton, MemberList)\\n\\n아키텍처 준수:\\n- API 라우트: 기존 POST /api/projects 패턴 동일 (JWT/쿠키 인증)\\n- 쿼리 함수: 기존 getProjectById 패턴 동일 (try-catch, throw)\\n- 컴포넌트: Server/Client 분리 준수\\n- 타입: Project, ProjectMember 재사용\\n- RLS 정책: 기존 설정 재활용\\n\\n제약 조건:\\n- 최대 2명 멤버 (creator + member)\\n- 중복 참여 방지\\n- 공유 링크 10자 (nanoid 기존 생성)\\n- 모바일 우선 반응형\\n- Realtime은 Phase 5에서 추가"
     },
     {
-      "id": "2f10b1c7-7594-4dc6-9698-fc34304f3a7a",
-      "name": "CreateProjectModal",
-      "description": "components/calendar/CreateProjectModal.tsx",
-      "notes": "모바일 친화",
+      "id": "a5926741-ca51-4666-9b1f-2e371684aead",
+      "name": "JoinProjectClient 클라이언트 컴포넌트 구현",
+      "description": "components/projects/JoinProjectClient.tsx 파일을 생성합니다. 'use client' 클라이언트 컴포넌트로 참여하기 버튼을 제공합니다. POST /api/projects/[projectId]/join을 호출하며, 로딩 상태, 성공/에러 메시지를 처리하고, 성공 시 /projects/[projectId]로 리다이렉트합니다.",
+      "notes": "toast 알림은 sonner 라이브러리 사용 (기존 패턴). router.push()로 이동",
       "status": "pending",
       "dependencies": [
         {
-          "taskId": "d7ef71d1-9e32-4012-882a-1dee2cca38ca"
+          "taskId": "09f37da6-1e58-4713-85de-8053e3537780"
         }
       ],
-      "createdAt": "2026-02-26T13:49:21.537Z",
-      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "createdAt": "2026-02-27T06:43:10.809Z",
+      "updatedAt": "2026-02-27T06:43:10.809Z",
       "relatedFiles": [
         {
           "path": "components/calendar/CreateProjectModal.tsx",
-          "type": "CREATE",
-          "description": "모달"
+          "type": "REFERENCE",
+          "description": "로딩 상태 및 에러 처리 패턴"
         }
       ],
-      "implementationGuide": "Dialog, 입력 검증",
-      "verificationCriteria": "모달 동작"
+      "implementationGuide": "파일: components/projects/JoinProjectClient.tsx\n\n'use client' 선언\n\nProps 인터페이스:\ninterface JoinProjectClientProps {\n  projectId: string;\n  shareLink: string;\n}\n\n구현:\n1. useState로 로딩, 에러 상태 관리\n2. 참여하기 버튼 클릭 시:\n   - POST /api/projects/[projectId]/join 호출\n   - 요청 본문: { shareLink }\n3. 성공 (201):\n   - toast.success('프로젝트에 참여했습니다.')\n   - useRouter().push('/projects/' + projectId)\n4. 에러:\n   - 409: toast.error('최대 2명까지만 참여 가능합니다.')\n   - 400: toast.error('공유 링크가 유효하지 않습니다.')\n   - 기타: toast.error(error.message)\n\nUI: Tailwind로 버튼 스타일 (최소 44x44px, 터치 친화)",
+      "verificationCriteria": "버튼 클릭 시 API 호출, 성공 시 리다이렉트, 에러 시 토스트 알림",
+      "analysisResult": "Phase 2: 공유 링크 생성 및 참여 기능 구현\\n\\n기존 Phase 1에서 공유 링크(share_link)가 이미 projects 테이블에 저장되고 있으므로, Phase 2는 이를 활용하여 공유 링크를 통한 참여 메커니즘을 구현합니다.\\n\\n핵심 기능:\\n1. 공유 링크로 프로젝트 조회 (getProjectByShareLink)\\n2. 사용자 멤버십 추가 (joinProject) - 최대 2명 제한\\n3. 참여 API 라우트 (/api/projects/[projectId]/join)\\n4. 참여 페이지 (/join/[shareLink])\\n5. UI 컴포넌트 (ShareLinkButton, MemberList)\\n\\n아키텍처 준수:\\n- API 라우트: 기존 POST /api/projects 패턴 동일 (JWT/쿠키 인증)\\n- 쿼리 함수: 기존 getProjectById 패턴 동일 (try-catch, throw)\\n- 컴포넌트: Server/Client 분리 준수\\n- 타입: Project, ProjectMember 재사용\\n- RLS 정책: 기존 설정 재활용\\n\\n제약 조건:\\n- 최대 2명 멤버 (creator + member)\\n- 중복 참여 방지\\n- 공유 링크 10자 (nanoid 기존 생성)\\n- 모바일 우선 반응형\\n- Realtime은 Phase 5에서 추가"
     },
     {
-      "id": "63ed3db4-6cd2-49a0-92fa-f45bb8257529",
-      "name": "통합 테스트",
-      "description": "end-to-end 테스트",
-      "notes": "모바일 반응형",
+      "id": "60a35537-afe4-472f-b5e4-af8890e14fcf",
+      "name": "ShareLinkButton 컴포넌트 구현",
+      "description": "components/projects/ShareLinkButton.tsx 파일을 생성합니다. 'use client' 클라이언트 컴포넌트로 프로젝트의 공유 링크를 표시하고 복사 기능을 제공합니다. Clipboard API를 사용하여 링크를 복사하고, 성공 시 toast 알림을 표시합니다.",
+      "notes": "Clipboard API는 HTTPS 환경에서만 작동. 환경에 따라 polyfill 필요한지 확인. toast는 sonner 사용",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-02-27T06:43:10.809Z",
+      "updatedAt": "2026-02-27T06:43:10.809Z",
+      "relatedFiles": [
+        {
+          "path": "lib/types/project.ts",
+          "type": "REFERENCE",
+          "description": "Project 타입"
+        }
+      ],
+      "implementationGuide": "파일: components/projects/ShareLinkButton.tsx\n\n'use client' 선언\n\nProps 인터페이스:\ninterface ShareLinkButtonProps {\n  projectId: string;\n  shareLink: string;\n}\n\n구현:\n1. 공유 링크 URL 구성: window.location.origin + '/join/' + shareLink\n2. 복사 버튼 클릭 시:\n   - navigator.clipboard.writeText(url)\n   - 성공: toast.success('공유 링크가 복사되었습니다.')\n   - 실패: toast.error('복사에 실패했습니다.')\n3. 토글 버튼으로 링크 표시/숨김 옵션\n4. 링크는 읽기 전용 입력 필드에 표시\n\nUI:\n- 링크 텍스트 표시 영역\n- 복사 버튼 (최소 44x44px)\n- 링크 숨김/표시 토글\n- Tailwind 반응형 레이아웃",
+      "verificationCriteria": "버튼 클릭 시 클립보드에 링크 복사, 토스트 알림 표시, 모바일/웹에서 정상 작동",
+      "analysisResult": "Phase 2: 공유 링크 생성 및 참여 기능 구현\\n\\n기존 Phase 1에서 공유 링크(share_link)가 이미 projects 테이블에 저장되고 있으므로, Phase 2는 이를 활용하여 공유 링크를 통한 참여 메커니즘을 구현합니다.\\n\\n핵심 기능:\\n1. 공유 링크로 프로젝트 조회 (getProjectByShareLink)\\n2. 사용자 멤버십 추가 (joinProject) - 최대 2명 제한\\n3. 참여 API 라우트 (/api/projects/[projectId]/join)\\n4. 참여 페이지 (/join/[shareLink])\\n5. UI 컴포넌트 (ShareLinkButton, MemberList)\\n\\n아키텍처 준수:\\n- API 라우트: 기존 POST /api/projects 패턴 동일 (JWT/쿠키 인증)\\n- 쿼리 함수: 기존 getProjectById 패턴 동일 (try-catch, throw)\\n- 컴포넌트: Server/Client 분리 준수\\n- 타입: Project, ProjectMember 재사용\\n- RLS 정책: 기존 설정 재활용\\n\\n제약 조건:\\n- 최대 2명 멤버 (creator + member)\\n- 중복 참여 방지\\n- 공유 링크 10자 (nanoid 기존 생성)\\n- 모바일 우선 반응형\\n- Realtime은 Phase 5에서 추가"
+    },
+    {
+      "id": "60e49ad8-ed6f-49b0-9c76-c227d8344dfa",
+      "name": "MemberList 컴포넌트 구현",
+      "description": "components/projects/MemberList.tsx 파일을 생성합니다. 프로젝트의 멤버 목록을 표시하는 컴포넌트로, 각 멤버의 역할(creator/member)과 색상(빨강/파랑)을 시각적으로 표시합니다.",
+      "notes": "ProjectMember 타입이 user 정보를 직접 포함하지 않으므로, 나중에 user_id로 추가 쿼리 필요할 수 있음. 현재는 user_id만 표시 또는 props로 user 정보 추가",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-02-27T06:43:10.809Z",
+      "updatedAt": "2026-02-27T06:43:10.809Z",
+      "relatedFiles": [
+        {
+          "path": "lib/types/project.ts",
+          "type": "REFERENCE",
+          "description": "ProjectMember 타입"
+        }
+      ],
+      "implementationGuide": "파일: components/projects/MemberList.tsx\n\nProps 인터페이스:\ninterface MemberListProps {\n  members: ProjectMember[];\n  className?: string;\n}\n\n구현:\n1. 멤버 배열 렌더링\n2. 각 멤버 항목:\n   - 역할 배지 (creator: 빨강, member: 파랑)\n   - 사용자 정보 (이름 또는 이메일)\n   - 참여 시간 (한국 시간대, 'YYYY-MM-DD HH:mm')\n3. creator가 있으면 최상단에 배치\n4. 리스트 스타일: 카드 형태 또는 테이블\n\nUI:\n- Tailwind로 멤버 아이템 스타일\n- 배지는 display_color 사용\n- 텍스트는 명확한 대비\n- 모바일 친화적 리스트",
+      "verificationCriteria": "멤버 목록이 올바르게 표시, creator와 member 구분, 색상 정확함",
+      "analysisResult": "Phase 2: 공유 링크 생성 및 참여 기능 구현\\n\\n기존 Phase 1에서 공유 링크(share_link)가 이미 projects 테이블에 저장되고 있으므로, Phase 2는 이를 활용하여 공유 링크를 통한 참여 메커니즘을 구현합니다.\\n\\n핵심 기능:\\n1. 공유 링크로 프로젝트 조회 (getProjectByShareLink)\\n2. 사용자 멤버십 추가 (joinProject) - 최대 2명 제한\\n3. 참여 API 라우트 (/api/projects/[projectId]/join)\\n4. 참여 페이지 (/join/[shareLink])\\n5. UI 컴포넌트 (ShareLinkButton, MemberList)\\n\\n아키텍처 준수:\\n- API 라우트: 기존 POST /api/projects 패턴 동일 (JWT/쿠키 인증)\\n- 쿼리 함수: 기존 getProjectById 패턴 동일 (try-catch, throw)\\n- 컴포넌트: Server/Client 분리 준수\\n- 타입: Project, ProjectMember 재사용\\n- RLS 정책: 기존 설정 재활용\\n\\n제약 조건:\\n- 최대 2명 멤버 (creator + member)\\n- 중복 참여 방지\\n- 공유 링크 10자 (nanoid 기존 생성)\\n- 모바일 우선 반응형\\n- Realtime은 Phase 5에서 추가"
+    },
+    {
+      "id": "84b7de72-16dc-4c54-b8c1-a9b3e8f779e8",
+      "name": "프로젝트 상세 페이지 (/projects/[projectId]/page.tsx) 통합",
+      "description": "app/projects/[projectId]/page.tsx 파일을 수정하여 ShareLinkButton과 MemberList 컴포넌트를 추가합니다. 페이지 구조: (1) 프로젝트 제목, 날짜, (2) ShareLinkButton, (3) MemberList, (4) Phase 3+ 지도 영역. 모바일 우선 반응형 레이아웃을 적용합니다.",
+      "notes": "기존 getProjectById가 ProjectWithMembers를 반환하므로, members 배열 바로 사용 가능. Phase 3에서 지도 추가 예정이므로 자리 남겨두기",
       "status": "pending",
       "dependencies": [
         {
-          "taskId": "a4c643df-694f-4961-83be-12bf36ab6cc9"
+          "taskId": "60a35537-afe4-472f-b5e4-af8890e14fcf"
         },
         {
-          "taskId": "2f10b1c7-7594-4dc6-9698-fc34304f3a7a"
+          "taskId": "60e49ad8-ed6f-49b0-9c76-c227d8344dfa"
         }
       ],
-      "createdAt": "2026-02-26T13:49:21.537Z",
-      "updatedAt": "2026-02-26T13:49:21.537Z",
+      "createdAt": "2026-02-27T06:43:10.809Z",
+      "updatedAt": "2026-02-27T06:43:10.809Z",
       "relatedFiles": [
         {
-          "path": "app/page.tsx",
-          "type": "REFERENCE",
-          "description": "확인"
+          "path": "app/projects/[projectId]/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "기존 페이지 수정"
         }
       ],
-      "implementationGuide": "전체 흐름 검증",
-      "verificationCriteria": "전체 동작"
+      "implementationGuide": "파일: app/projects/[projectId]/page.tsx\n\n구조:\n1. getProjectById 쿼리로 프로젝트 + 멤버 조회\n2. 페이지 레이아웃:\n   - 헤더: 프로젝트 제목, 날짜\n   - 정보 섹션:\n     * ShareLinkButton 컴포넌트 (projectId, shareLink)\n     * MemberList 컴포넌트 (members)\n   - 지도 영역 (Phase 3에서 추가)\n\nCSS/Tailwind:\n- 모바일 (375px): 수직 스택\n  * 제목 (w-full)\n  * ShareLink 영역\n  * 멤버 목록\n  * 지도 (높이 300px)\n- 태블릿+ (md:): 좌우 분할\n  * 좌측: 지도 (60%)\n  * 우측: 정보 패널 (40%, 스크롤 가능)\n\n에러 처리:\n- 프로젝트 없으면 notFound()\n- 권한 없으면 대시보드로 리다이렉트",
+      "verificationCriteria": "페이지가 올바르게 프로젝트 정보 표시, ShareLinkButton과 MemberList 렌더링, 모바일/웹 반응형 정상",
+      "analysisResult": "Phase 2: 공유 링크 생성 및 참여 기능 구현\\n\\n기존 Phase 1에서 공유 링크(share_link)가 이미 projects 테이블에 저장되고 있으므로, Phase 2는 이를 활용하여 공유 링크를 통한 참여 메커니즘을 구현합니다.\\n\\n핵심 기능:\\n1. 공유 링크로 프로젝트 조회 (getProjectByShareLink)\\n2. 사용자 멤버십 추가 (joinProject) - 최대 2명 제한\\n3. 참여 API 라우트 (/api/projects/[projectId]/join)\\n4. 참여 페이지 (/join/[shareLink])\\n5. UI 컴포넌트 (ShareLinkButton, MemberList)\\n\\n아키텍처 준수:\\n- API 라우트: 기존 POST /api/projects 패턴 동일 (JWT/쿠키 인증)\\n- 쿼리 함수: 기존 getProjectById 패턴 동일 (try-catch, throw)\\n- 컴포넌트: Server/Client 분리 준수\\n- 타입: Project, ProjectMember 재사용\\n- RLS 정책: 기존 설정 재활용\\n\\n제약 조건:\\n- 최대 2명 멤버 (creator + member)\\n- 중복 참여 방지\\n- 공유 링크 10자 (nanoid 기존 생성)\\n- 모바일 우선 반응형\\n- Realtime은 Phase 5에서 추가"
+    },
+    {
+      "id": "b90219fc-2934-4c1c-9002-7fe0b6288349",
+      "name": "Phase 2 전체 기능 테스트",
+      "description": "Phase 2의 모든 기능을 종합적으로 테스트합니다. 공유 링크 생성부터 참여까지 전체 플로우를 검증하고, 에러 케이스도 포함합니다.",
+      "notes": "테스트는 로컬 개발 환경에서 수행. 두 개 이상의 브라우저 탭 또는 계정 필요. Supabase RLS 정책이 정상 작동하는지 확인",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "84b7de72-16dc-4c54-b8c1-a9b3e8f779e8"
+        }
+      ],
+      "createdAt": "2026-02-27T06:43:10.809Z",
+      "updatedAt": "2026-02-27T06:43:10.809Z",
+      "relatedFiles": [
+        {
+          "path": "docs/ROADMAP.md",
+          "type": "REFERENCE",
+          "description": "Phase 2 체크리스트"
+        }
+      ],
+      "implementationGuide": "테스트 시나리오:\n\n1. 기본 참여 플로우:\n   - A 계정에서 프로젝트 생성\n   - 프로젝트 상세 페이지 접속\n   - ShareLinkButton에서 공유 링크 복사\n   - 브라우저 시크릿 창 (또는 B 계정)에서 링크 접속\n   - /join/[shareLink] 페이지 로드 확인\n   - B 계정으로 로그인\n   - 참여하기 버튼 클릭\n   - 성공 토스트 표시\n   - /projects/[projectId]로 리다이렉트\n   - MemberList에 B 사용자 추가 확인 (파란 배지)\n\n2. 캘린더 연동 확인:\n   - A 계정의 캘린더에서 프로젝트 빨강 배지\n   - B 계정의 캘린더에서 프로젝트 파랑 배지\n\n3. 에러 케이스:\n   - 이미 참여한 멤버 재참여: 409 에러, '이미 참여한 프로젝트입니다' 토스트\n   - 2명 이상 참여 시도: 409 에러, '최대 2명까지만 참여 가능합니다' 토스트\n   - 유효하지 않은 공유 링크: 404 페이지\n   - 미로그인 상태에서 링크 접속: /auth/login으로 리다이렉트\n\n4. UI 검증:\n   - 모바일 (375px): 수직 레이아웃\n   - 태블릿+ (md:): 반응형 레이아웃\n   - 버튼 크기 최소 44x44px\n   - 색상 올바름 (빨강/파랑)\n   - 토스트 알림 표시",
+      "verificationCriteria": "모든 테스트 시나리오 통과, 에러 케이스 정상 처리, 모바일/웹 반응형 확인, 캘린더 연동 확인",
+      "analysisResult": "Phase 2: 공유 링크 생성 및 참여 기능 구현\\n\\n기존 Phase 1에서 공유 링크(share_link)가 이미 projects 테이블에 저장되고 있으므로, Phase 2는 이를 활용하여 공유 링크를 통한 참여 메커니즘을 구현합니다.\\n\\n핵심 기능:\\n1. 공유 링크로 프로젝트 조회 (getProjectByShareLink)\\n2. 사용자 멤버십 추가 (joinProject) - 최대 2명 제한\\n3. 참여 API 라우트 (/api/projects/[projectId]/join)\\n4. 참여 페이지 (/join/[shareLink])\\n5. UI 컴포넌트 (ShareLinkButton, MemberList)\\n\\n아키텍처 준수:\\n- API 라우트: 기존 POST /api/projects 패턴 동일 (JWT/쿠키 인증)\\n- 쿼리 함수: 기존 getProjectById 패턴 동일 (try-catch, throw)\\n- 컴포넌트: Server/Client 분리 준수\\n- 타입: Project, ProjectMember 재사용\\n- RLS 정책: 기존 설정 재활용\\n\\n제약 조건:\\n- 최대 2명 멤버 (creator + member)\\n- 중복 참여 방지\\n- 공유 링크 10자 (nanoid 기존 생성)\\n- 모바일 우선 반응형\\n- Realtime은 Phase 5에서 추가"
     }
   ]
 }
