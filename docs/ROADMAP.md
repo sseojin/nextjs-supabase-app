@@ -8,25 +8,24 @@
 ## 📊 전체 로드맵 개요
 
 ```
-Phase 0: 랜딩 + 캘린더 (2일)
+Phase 0: 랜딩 + 캘린더 (2일) ✅ 완료
     ↓
-Phase 1: 데이터베이스 + 프로젝트 생성 (2일)
+Phase 1: 데이터베이스 + 프로젝트 생성 (2일) ✅ 완료
     ↓
-Phase 2: 공유 및 참여 (1일)
+Phase 2: 공유 링크 및 참여 (1일) ✅ 완료
     ↓
-Phase 3: 네이버 지도 기본 구현 (2-3일)
+Phase 3: 네이버 지도 기본 구현 (2일) - 진행 예정
     ↓
-Phase 4: 후보지 관리 및 마커 표시 (2일)
+Phase 4: 후보지 등록 및 투표 시스템 (3일)
+    [사용자 색상 핀 마커 + 투표 + is_approved 상태 관리]
     ↓
-Phase 5: Realtime 동기화 (마커) (2일)
+Phase 5: Realtime 동기화 (후보지 + 투표) (1일)
+    [지도/목록 실시간 업데이트, 마커 색상 변경 실시간 반영]
     ↓
-Phase 6: 투표 시스템 (2일)
+Phase 6: 최종 장소 목록 및 타임테이블 준비 (1일)
+    [확정된 장소 필터링, 다음 페이지(타임테이블)를 위한 API 준비]
     ↓
-Phase 7: Realtime 동기화 (투표) (1일)
-    ↓
-Phase 8: 최종 장소 목록 (1일)
-    ↓
-Phase 9: UI/UX 개선 및 테스트 (2일)
+Phase 7: UI/UX 개선 및 전체 테스트 (2일)
 ```
 
 ---
@@ -330,6 +329,31 @@ Phase 9: UI/UX 개선 및 테스트 (2일)
   NAVER_MAP_CLIENT_SECRET=your_client_secret
   ```
 
+## 데이터베이스 스키마 추가 (locations, votes)
+- [ ] `supabase/migrations/03_add_locations_votes_schema.sql` 생성
+  - [ ] **locations 테이블**:
+    - [ ] id (UUID, PK)
+    - [ ] project_id (UUID, FK → projects)
+    - [ ] added_by (UUID, FK → auth.users) - 후보지 추가한 사용자
+    - [ ] name (TEXT) - 장소명
+    - [ ] address (TEXT) - 주소
+    - [ ] latitude (DECIMAL) - 위도
+    - [ ] longitude (DECIMAL) - 경도
+    - [ ] category (TEXT) - 카테고리 (카페, 식당, 영화관 등)
+    - [ ] memo (TEXT, nullable) - 메모
+    - [ ] is_approved (BOOLEAN DEFAULT false) - 만장일치 여부
+    - [ ] created_at, updated_at (TIMESTAMPTZ)
+  - [ ] **votes 테이블**:
+    - [ ] id (UUID, PK)
+    - [ ] location_id (UUID, FK → locations)
+    - [ ] user_id (UUID, FK → auth.users)
+    - [ ] vote (BOOLEAN) - true: 찬성, false: 반대
+    - [ ] created_at, updated_at (TIMESTAMPTZ)
+    - [ ] UNIQUE(location_id, user_id)
+  - [ ] 인덱스 생성
+  - [ ] RLS 정책 설정
+  - [ ] Realtime publication 추가
+
 ## 네이버 지도 설정 파일 생성
 - [ ] `lib/naver-map/config.ts` 생성
   - [ ] 네이버 지도 API URL 설정
@@ -404,85 +428,110 @@ Phase 9: UI/UX 개선 및 테스트 (2일)
 
 ---
 
-# 🎯 Phase 4: 후보지 관리 및 마커 표시 (2일)
+# 🎯 Phase 4: 후보지 등록 및 투표 시스템 (3일)
 
 ## 후보지 쿼리 함수 구현
 - [ ] `lib/supabase/queries/locations.ts` 생성
-  - [ ] `getLocationsByProject(projectId)` - 프로젝트 후보지 조회
-  - [ ] `createLocation(projectId, data)` - 후보지 추가
+  - [ ] `getLocationsByProject(projectId)` - 프로젝트 후보지 조회 (투표 정보 포함)
+  - [ ] `createLocation(projectId, userId, data)` - 후보지 추가
   - [ ] `deleteLocation(locationId)` - 후보지 삭제
-  - [ ] `updateLocation(locationId, data)` - 후보지 수정
+  - [ ] `updateLocationApprovalStatus(locationId, isApproved)` - 만장일치 상태 업데이트
 
 ## 후보지 API 라우트 구현
 - [ ] `app/api/projects/[projectId]/locations/route.ts` 생성
-  - [ ] `GET` 구현 (후보지 목록 조회)
+  - [ ] `GET` 구현 (후보지 목록 조회 - 투표 정보 JOIN)
   - [ ] `POST` 구현 (후보지 추가)
     - [ ] 요청 본문: name, address, latitude, longitude, category, memo
     - [ ] 사용자 인증 확인
-    - [ ] locations 테이블에 저장
+    - [ ] locations 테이블에 저장 (added_by 사용자 ID 기록)
     - [ ] 반환: 생성된 location 객체
 
 - [ ] `app/api/projects/[projectId]/locations/[locationId]/route.ts` 생성
   - [ ] `DELETE` 구현 (후보지 삭제)
   - [ ] `PUT` 구현 (후보지 수정)
 
-## 네이버 지도 검색 API 프록시 구현
-- [ ] `app/api/naver-map/search/route.ts` 생성
-  - [ ] `GET` 구현 (장소 검색)
-  - [ ] 쿼리 파라미터: query
-  - [ ] 서버에서 네이버 Place Search API 호출 (API 키 보호)
-  - [ ] 검색 결과 반환 (장소명, 주소, 위도/경도 등)
+## 투표 쿼리 함수 구현
+- [ ] `lib/supabase/queries/votes.ts` 생성
+  - [ ] `createOrUpdateVote(locationId, userId, vote)` - 투표 생성/수정
+  - [ ] `deleteVote(locationId, userId)` - 투표 삭제
+  - [ ] `getVotesByLocation(locationId)` - 특정 장소의 투표 조회
 
-## 후보지 추가 기능 연결
-- [ ] AddLocationModal에서 "추가" 버튼 클릭 시 API 호출
-  - [ ] `POST /api/projects/[projectId]/locations` 호출
-  - [ ] 로딩 상태 표시
-  - [ ] 성공 시 모달 닫기 및 후보지 목록 새로고침
-  - [ ] 실패 시 에러 메시지 표시
+## 투표 API 라우트 구현
+- [ ] `app/api/projects/[projectId]/locations/[locationId]/vote/route.ts` 생성
+  - [ ] `POST` 구현 (투표 생성 또는 수정)
+    - [ ] 요청 본문: vote (true: 찬성, false: 반대)
+    - [ ] 사용자 인증 확인
+    - [ ] votes 테이블에 UPSERT
+    - [ ] 투표 후 해당 location의 is_approved 상태 자동 계산
+    - [ ] 성공 시: 업데이트된 location 객체 반환 (투표 정보 포함)
 
-- [ ] 지도 클릭 → Reverse Geocoding → 모달 열기 흐름 완성
-- [ ] 검색 결과 클릭 → 모달 자동 채우기 구현
+## 지도에서 후보지 등록 흐름
+- [ ] NaverMap 컴포넌트에서 마커 클릭 이벤트
+  - [ ] InfoWindow 표시 (장소명, 주소)
+  - [ ] **"후보지 등록" 버튼 추가** (InfoWindow 하단)
+  - [ ] 버튼 클릭 → AddLocationModal 열기 (자동 좌표, 주소 입력)
 
-## 후보지 목록 컴포넌트 구현
+- [ ] `components/locations/AddLocationModal.tsx` 생성 (기존 구조 유지)
+  - [ ] 장소명, 주소, 위도/경도 (자동 입력)
+  - [ ] 카테고리 선택
+  - [ ] 메모 입력 (선택사항)
+  - [ ] "추가" 버튼 클릭 → `POST /api/projects/[projectId]/locations` 호출
+
+## 후보지 목록 및 투표 UI 구현
 - [ ] `components/locations/LocationList.tsx` 생성
   - [ ] projectId 받기
-  - [ ] `getLocationsByProject` API 호출
+  - [ ] API에서 후보지 목록 조회 (투표 정보 포함)
   - [ ] 로딩 상태 처리
-  - [ ] 후보지 목록 렌더링
 
 - [ ] `components/locations/LocationCard.tsx` 생성
-  - [ ] 장소명, 주소, 카테고리 표시
-  - [ ] 투표 버튼 영역 확보
-  - [ ] 투표 상태 표시 (1/2, 2/2 등)
+  - [ ] 장소명, 주소, 카테고리, 추가한 사용자명 표시
+  - [ ] **투표 상태 표시** (아래 참조):
+    - [ ] ✅ 초록 체크: 만장일치 (is_approved = true)
+    - [ ] ❌ 검정 X: 만장일치 불가 (is_approved = false)
+  - [ ] 투표 버튼 (찬성/반대)
+    - [ ] 현재 사용자의 투표 상태 표시
+    - [ ] 클릭 시 `POST /api/projects/[projectId]/locations/[locationId]/vote` 호출
 
-## 마커 표시 및 색상 구분
+## 지도에서 마커 표시 (핀 이모티콘)
 - [ ] NaverMap 컴포넌트에서 후보지 목록 받기
-  - [ ] projectId 전달받기
-  - [ ] locations 데이터 받기 (props로)
+  - [ ] projectId와 locations 데이터 받기
 
-- [ ] 각 후보지별 마커 생성
-  - [ ] 마커 좌표 설정 (latitude, longitude)
-  - [ ] 마커 색상 설정
-    - [ ] creator 추가: 빨간색 (#FF0000)
-    - [ ] member 추가: 파란색 (#0000FF)
-    - [ ] 확정 (approved): 초록색 (#00FF00)
-  - [ ] 마커 아이콘 커스터마이징
+- [ ] **각 후보지별 작은 핀 이모티콘 표시**:
+  - [ ] **등록한 사용자 색상** (기본):
+    - [ ] 🔴 creator가 등록: 빨간 핀
+    - [ ] 🔵 member가 등록: 파란 핀
+  - [ ] **투표 결과에 따라 색상 변경**:
+    - [ ] 🟢 만장일치 (is_approved = true): 초록 핀
+    - [ ] ⚫ 만장일치 불가 (is_approved = false): 검은 핀
 
 - [ ] 마커 클릭 이벤트
-  - [ ] InfoWindow 표시 (장소명, 주소 등)
-  - [ ] 추가 정보 표시 가능
+  - [ ] InfoWindow 표시 (장소명, 주소, 추가한 사용자, 현재 투표 상태)
+  - [ ] **"후보지 등록" 버튼** (이미 등록된 장소면 버튼 제거)
+
+## 투표 결과 DB 업데이트 자동화
+- [ ] Supabase 트리거 함수 추가 (`03_add_locations_votes_schema.sql`)
+  - [ ] `check_location_approval()` 함수 구현
+    - [ ] votes 테이블 변경 감지
+    - [ ] 프로젝트 멤버 수 확인
+    - [ ] 현재 location의 총 찬성 투표 수 계산
+    - [ ] 찬성 투표 수 = 멤버 수일 때 → is_approved = true
+    - [ ] 아니면 → is_approved = false
+  - [ ] 트리거 생성 (`after insert or update on votes`)
 
 ## 기능 테스트
-- [ ] 지도 클릭 → 후보지 추가 모달 → 추가 버튼 클릭
-- [ ] Supabase에 후보지 저장 확인
-- [ ] 지도에 마커 표시 확인
-- [ ] 마커 색상 올바르게 표시 (빨강/파랑)
-- [ ] 우측 후보지 목록에 장소 표시 확인
-- [ ] 마커 클릭 → InfoWindow 표시 확인
+- [ ] 지도에서 장소 클릭 → InfoWindow → "후보지 등록" 버튼 클릭
+- [ ] 모달에서 정보 입력 → "추가" 버튼 클릭
+- [ ] Supabase의 locations 테이블에 저장 확인
+- [ ] 지도에 계정 색깔의 작은 핀 표시 확인
+- [ ] 후보지 목록에 자동 추가 확인
+- [ ] A 사용자가 찬성 투표 → 마커 색상 유지 (기본 색)
+- [ ] B 사용자도 찬성 투표 → 마커 색상 변경 (초록 핀)
+- [ ] LocationCard에 "✅" 표시 확인
+- [ ] 반대 투표 시나리오 → 검은 핀 + "❌" 표시 확인
 
 ---
 
-# 🎯 Phase 5: Realtime 동기화 (마커) (2일)
+# 🎯 Phase 5: Realtime 동기화 (후보지 + 투표) (1일)
 
 ## Supabase Realtime 설정
 - [ ] Supabase Dashboard에서 Realtime 활성화 확인
@@ -492,18 +541,20 @@ Phase 9: UI/UX 개선 및 테스트 (2일)
 ## Realtime 훅 구현
 - [ ] `lib/hooks/useRealtime.ts` 생성
   - [ ] `useRealtimeLocations(projectId)` 훅 구현
-    - [ ] 초기 locations 데이터 로드
-    - [ ] Supabase Realtime 구독 (INSERT, UPDATE, DELETE)
-    - [ ] 상태 업데이트 (INSERT → 추가, UPDATE → 수정, DELETE → 제거)
+    - [ ] 초기 locations 데이터 로드 (투표 정보 포함)
+    - [ ] Supabase Realtime 구독 - locations 테이블 (INSERT, UPDATE, DELETE)
+    - [ ] Supabase Realtime 구독 - votes 테이블 (INSERT, UPDATE, DELETE)
+    - [ ] 상태 업데이트:
+      - [ ] locations INSERT → 새 마커 추가
+      - [ ] locations UPDATE → 마커 색상 업데이트 (is_approved 변경)
+      - [ ] votes INSERT/UPDATE → is_approved 상태 실시간 반영
     - [ ] 언마운트 시 구독 해제
-
-  - [ ] `useRealtimeVotes(projectId)` 훅 구현 (Phase 7에서)
 
 ## RealtimeProvider 컨텍스트 구현
 - [ ] `components/realtime/RealtimeProvider.tsx` 생성
-  - [ ] Context 생성 (locations, votes, scheduleItems)
+  - [ ] Context 생성 (locations with votes)
   - [ ] Provider 컴포넌트 구현
-  - [ ] useRealtime 커스텀 훅으로 데이터 관리
+  - [ ] useRealtimeLocations 훅으로 데이터 관리
   - [ ] useContext 헬퍼 함수 (useRealtimeContext)
 
 ## 프로젝트 페이지에 Realtime 연결
@@ -513,150 +564,56 @@ Phase 9: UI/UX 개선 및 테스트 (2일)
 
 - [ ] NaverMap, LocationList 컴포넌트에서 useRealtimeContext 사용
   - [ ] Context에서 locations 데이터 가져오기
-  - [ ] 자동 업데이트 (상태 변경 시 자동 렌더링)
+  - [ ] 후보지 추가, 투표 시 자동 렌더링
+  - [ ] 마커 색상 실시간 변경
 
 ## 실시간 동기화 테스트
 - [ ] 두 브라우저 탭 또는 창에서 같은 프로젝트 접속
-- [ ] 탭 A에서 후보지 추가
-  - [ ] 탭 B에서 즉시 마커 표시 확인
+- [ ] **탭 A에서 후보지 추가**:
+  - [ ] 탭 B에서 즉시 마커 표시 확인 (계정 색상 핀)
+  - [ ] LocationCard에 즉시 추가 확인
   - [ ] 새로고침 없이 동기화 확인
-- [ ] 탭 B에서 후보지 추가
-  - [ ] 탭 A에서 즉시 마커 표시 확인
-- [ ] 마커 색상 올바르게 표시 확인
+- [ ] **탭 A에서 투표 (찬성)**:
+  - [ ] 탭 B에서 즉시 LocationCard 상태 업데이트 확인
+  - [ ] 아직 만장일치 아니므로 기본 색상 마커 유지
+- [ ] **탭 B에서 같은 장소 투표 (찬성)**:
+  - [ ] 탭 A, B 모두 마커 색상 즉시 변경 (초록 핀)
+  - [ ] LocationCard에 "✅" 표시 확인
+  - [ ] is_approved = true로 DB 업데이트 확인
 
 ---
 
-# 🎯 Phase 6: 투표 시스템 (2일)
+# 🎯 Phase 6: 최종 장소 목록 및 타임테이블 준비 (1일)
 
-## 투표 쿼리 함수 구현
-- [ ] `lib/supabase/queries/votes.ts` 생성
-  - [ ] `getVotesByProject(projectId)` - 프로젝트의 모든 투표 조회
-  - [ ] `createOrUpdateVote(locationId, userId, voteType)` - 투표 생성/수정
-  - [ ] `deleteVote(voteId)` - 투표 삭제
-
-## 투표 API 라우트 구현
-- [ ] `app/api/projects/[projectId]/votes/route.ts` 생성
-  - [ ] `POST` 구현 (투표 생성 또는 수정)
-    - [ ] 요청 본문: locationId, voteType ('approve' | 'reject')
-    - [ ] 사용자 인증 확인
-    - [ ] UPSERT 로직 (기존 투표 있으면 업데이트, 없으면 생성)
-    - [ ] 성공 시: vote 객체 + updated location 반환
-    - [ ] 트리거로 location status 자동 업데이트
-
-- [ ] `app/api/projects/[projectId]/votes/[voteId]/route.ts` 생성 (선택사항)
-  - [ ] `DELETE` 구현 (투표 삭제)
-
-## VoteButton 컴포넌트 구현
-- [ ] `components/locations/VoteButton.tsx` 생성
-  - [ ] locationId, userId 받기
-  - [ ] 찬성(👍) 및 반대(👎) 버튼
-  - [ ] 현재 투표 상태 표시 (투표함/미투표)
-  - [ ] 클릭 시 API 호출
-  - [ ] 로딩 상태 표시
-
-## LocationCard에 VoteButton 통합
-- [ ] `components/locations/LocationCard.tsx` 수정
-  - [ ] VoteButton 추가
-  - [ ] 투표 상태 표시
-    - [ ] 상태: "투표 안함", "1/2", "2/2 확정", "거부됨"
-    - [ ] 시각적으로 구분 (아이콘, 배색 등)
-
-## 투표 상태 자동 업데이트 로직 (Supabase 트리거)
-- [ ] 01_initial_schema.sql에 트리거 함수 추가
-  - [ ] `update_location_status()` 함수 구현
-    - [ ] votes 테이블 변경 감지
-    - [ ] 프로젝트 멤버 수 계산
-    - [ ] 찬성/반대 투표 수 계산
-    - [ ] location status 자동 업데이트
-  - [ ] 트리거 생성 (`after insert or update on votes`)
-
-## 투표 상태 표시
-- [ ] LocationCard에서 location.status 확인
-  - [ ] 'pending' (0/2) → "투표 안함"
-  - [ ] 'pending' (1/2) → "1/2"
-  - [ ] 'approved' (2/2) → "✅ 2/2 확정" (초록색)
-  - [ ] 'rejected' → "거부됨" (회색)
-
-## 마커 색상 변경
-- [ ] NaverMap에서 location.status 확인
-  - [ ] 'pending' → 빨강/파랑 (추가한 사용자에 따라)
-  - [ ] 'approved' → 초록색 (#00FF00)
-  - [ ] 'rejected' → 회색 (#808080)
-
-## 기능 테스트
-- [ ] 탭 A에서 후보지 찬성 투표
-- [ ] Supabase votes 테이블에 저장 확인
-- [ ] LocationCard에 "1/2" 표시 확인
-- [ ] 탭 B에서 같은 후보지 찬성 투표
-- [ ] location status가 'approved'로 변경 확인
-- [ ] 두 탭 모두 "2/2 확정" 표시 확인
-- [ ] 마커 색상이 초록색으로 변경 확인
-- [ ] 반대 투표 → "거부됨" 표시 확인
-
----
-
-# 🎯 Phase 7: Realtime 동기화 (투표) (1일)
-
-## Realtime 투표 동기화 구현
-- [ ] `lib/hooks/useRealtime.ts`에서 `useRealtimeVotes` 훅 추가
-  - [ ] votes 테이블 Realtime 구독
-  - [ ] INSERT/UPDATE 이벤트 처리
-  - [ ] location status 업데이트 감지
-
-## RealtimeProvider에 투표 상태 추가
-- [ ] Context에 votes 데이터 추가
-- [ ] useRealtimeVotes 호출하여 상태 관리
-
-## LocationCard에서 실시간 투표 상태 업데이트
-- [ ] Context에서 votes 데이터 가져오기
-- [ ] location 상태 변경 시 자동 렌더링
-- [ ] 마커 색상 실시간 업데이트
-
-## 실시간 투표 동기화 테스트
-- [ ] 두 브라우저 탭에서 같은 프로젝트 접속
-- [ ] 탭 A에서 투표
-- [ ] 탭 B에서 즉시 투표 상태 업데이트 확인
-- [ ] 마커 색상 실시간 변경 확인
-- [ ] 새로고침 없이 동기화 확인
-
----
-
-# 🎯 Phase 8: 최종 장소 목록 (1일)
-
-## ApprovedLocationList 컴포넌트 구현
-- [ ] `components/locations/ApprovedLocationList.tsx` 생성
-  - [ ] 확정된 장소만 필터링 (status='approved')
-  - [ ] 장소명, 주소 표시
-  - [ ] 찬성/반대 아이콘 표시
+## 최종 확정 장소 필터링 및 표시
+- [ ] LocationList에서 is_approved 상태로 필터링
+  - [ ] "전체 후보지" vs "확정된 장소" 구분 (UI 탭 또는 섹션)
+  - [ ] 확정된 장소만 별도로 표시
 
 ## 프로젝트 페이지 우측 패널 구조 개선
-- [ ] 우측 패널을 탭으로 구분
-  - [ ] 탭 1: 모든 후보지 (LocationList)
-  - [ ] 탭 2: 확정된 장소 (ApprovedLocationList)
+- [ ] 우측/하단 패널에 스크롤 가능한 섹션으로 구분
+  - [ ] 상단: 모든 후보지 (LocationList)
+  - [ ] 하단: 확정된 장소 섹션 (초록색 배경)
 
-- [ ] 또는 스크롤 가능한 섹션으로 구분
-  - [ ] 상단: 후보지 목록
-  - [ ] 하단: 확정된 장소 섹션
-
-## 확정 장소 지도 표시
-- [ ] NaverMap에서 approved 마커 강조
-  - [ ] 초록색 마커로 표시
+## 확정 장소 지도 강조
+- [ ] NaverMap에서 is_approved = true인 마커 강조
+  - [ ] 초록색 마커로 표시 (이미 Phase 4에서 적용)
   - [ ] 다른 마커보다 위에 렌더링
 
-## 최종 확정 장소 섹션 CSS
-- [ ] 배경색 변경 (연한 초록색)
-- [ ] 배지 또는 아이콘으로 "확정" 표시
-- [ ] 호버 효과 추가
+## 다음 페이지(타임테이블)을 위한 데이터 준비
+- [ ] locations 테이블의 is_approved = true인 장소들
+  - [ ] `/api/projects/[projectId]/locations?approved=true` 엔드포인트 추가
+  - [ ] 타임테이블 페이지에서 사용할 수 있도록 구조화
 
 ## 기능 테스트
-- [ ] 두 명이 장소에 찬성 투표
-- [ ] "확정된 장소" 섹션에 장소 표시 확인
-- [ ] 지도에 초록 마커로 표시 확인
-- [ ] 거부된 장소는 확정 섹션에 표시되지 않음 확인
+- [ ] 여러 후보지 추가 및 투표 완료
+- [ ] "확정된 장소" 섹션에 is_approved = true인 장소만 표시 확인
+- [ ] 지마에 초록 핀으로 강조 표시 확인
+- [ ] is_approved = false인 장소는 별도 섹션에서만 표시 확인
 
 ---
 
-# 🎯 Phase 9: UI/UX 개선 및 테스트 (2일)
+# 🎯 Phase 7: UI/UX 개선 및 테스트 (2일)
 
 ## 로딩 상태 및 스피너
 - [ ] 전역 로딩 상태 관리 (또는 각 컴포넌트별)
@@ -835,14 +792,14 @@ Phase 2: ██░░░░░░░░ 20% (2/10 완료)
 ```
 
 ### 주요 마일스톤
-- [ ] Phase 0 완료 → 랜딩 + 캘린더 작동
-- [ ] Phase 1 완료 → 프로젝트 생성 가능
-- [ ] Phase 2 완료 → 공유 및 참여 가능
-- [ ] Phase 3-4 완료 → 지도 + 마커 표시
-- [ ] Phase 5 완료 → 실시간 마커 동기화
-- [ ] Phase 6-7 완료 → 투표 시스템 (실시간)
-- [ ] Phase 8 완료 → 최종 장소 목록
-- [ ] Phase 9 완료 → MVP 출시 준비 완료
+- [x] Phase 0 완료 → 랜딩 + 캘린더 작동
+- [x] Phase 1 완료 → 프로젝트 생성 가능
+- [x] Phase 2 완료 → 공유 및 참여 가능
+- [ ] Phase 3 완료 → 네이버 지도 기본 UI 구현
+- [ ] Phase 4 완료 → 후보지 등록 + 투표 시스템 (색상 핀 + is_approved)
+- [ ] Phase 5 완료 → 실시간 동기화 (지도 + 목록 + 투표)
+- [ ] Phase 6 완료 → 최종 장소 목록 (타임테이블 준비)
+- [ ] Phase 7 완료 → MVP 출시 준비 완료
 
 ---
 
@@ -859,15 +816,47 @@ Phase 2: ██░░░░░░░░ 20% (2/10 완료)
 
 ### 다음 페이즈
 - [ ] Phase 3: 네이버 지도 기본 구현
-- [ ] Phase 4: 후보지 관리 및 마커 표시
-- [ ] Phase 5: Realtime 동기화 (마커)
-- [ ] Phase 6: 투표 시스템
-- [ ] Phase 7: Realtime 동기화 (투표)
-- [ ] Phase 8: 최종 장소 목록
-- [ ] Phase 9: UI/UX 개선 및 테스트
+- [ ] Phase 4: 후보지 등록 및 투표 시스템
+- [ ] Phase 5: Realtime 동기화 (후보지 + 투표)
+- [ ] Phase 6: 최종 장소 목록 및 타임테이블 준비
+- [ ] Phase 7: UI/UX 개선 및 전체 테스트
 
 ---
 
 **마지막 업데이트**: 2026년 2월 28일
 **상태**: Phase 1, 2 완료 → Phase 3 준비 중
 **다음 단계**: Phase 3 네이버 지도 기본 구현
+
+---
+
+## 📋 투표 시스템 및 마커 색상 설계 (Phase 4-6)
+
+### 흐름 요약
+1. **네이버 지도에서 장소 클릭** → InfoWindow 표시 → **"후보지 등록" 버튼**
+2. **후보지 등록**:
+   - 사용자 계정에 맞는 색상 핀 표시 (🔴 creator / 🔵 member)
+   - locations 테이블에 저장
+   - 후보지 목록에 자동 추가
+3. **투표 (두 명 모두 가능)**:
+   - LocationCard에서 찬성/반대 투표
+   - votes 테이블에 저장
+   - Supabase 트리거로 is_approved 자동 계산
+4. **만장일치 (찬성 투표 수 = 멤버 수)**:
+   - is_approved = true
+   - 마커 색상 변경: 🟢 초록 핀
+   - LocationCard: ✅ 초록 체크 표시
+5. **만장일치 불가 (일부 반대 또는 투표 안 함)**:
+   - is_approved = false
+   - 마커 색상 변경: ⚫ 검은 핀
+   - LocationCard: ❌ 검정 X 표시
+6. **다음 페이지 (타임테이블)**:
+   - is_approved = true인 장소들 표시
+   - 최종 선정된 장소들로 일정 기획
+
+### DB 스키마 추가
+- **locations 테이블**:
+  - `is_approved` (BOOLEAN) - 만장일치 여부
+  - `added_by` (UUID) - 후보지 추가한 사용자
+- **votes 테이블**:
+  - `vote` (BOOLEAN) - true: 찬성, false: 반대
+  - UNIQUE(location_id, user_id)
