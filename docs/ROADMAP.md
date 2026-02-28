@@ -342,10 +342,10 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
     - [ ] category (TEXT) - 카테고리 (카페, 식당, 영화관 등)
     - [ ] telephone (TEXT, nullable) - 전화번호
     - [ ] naver_link (TEXT, nullable) - 네이버 지도 링크
+    - [ ] **naver_images (TEXT[] or JSON, nullable)** - 네이버에서 크롤링한 사진 URL 배열
     - [ ] memo (TEXT, nullable) - 메모/설명
     - [ ] is_approved (BOOLEAN DEFAULT false) - 만장일치 여부
     - [ ] created_at, updated_at (TIMESTAMPTZ)
-    - [ ] **image_urls (TEXT[] or JSON, nullable)** - 사용자가 업로드한 사진 URL 배열 (선택사항, Phase 4+ 구현)
   - [ ] **votes 테이블**:
     - [ ] id (UUID, PK)
     - [ ] location_id (UUID, FK → locations)
@@ -398,7 +398,10 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
 - [ ] `app/api/naver-map/search/route.ts` 생성
   - [ ] `GET` 구현 (장소 검색)
   - [ ] 쿼리 파라미터: query (가게명, "지역 카테고리" 형식)
-  - [ ] 네이버 Local Search API 호출 (기본 정보만)
+  - [ ] 네이버 Local Search API 호출 (기본 정보)
+  - [ ] **사진 정보 추가 시도** (선택사항):
+    - [ ] 우선: Cheerio/Puppeteer로 네이버 지도 페이지에서 사진 URL 크롤링 시도
+    - [ ] 실패 시: null 반환 (실패해도 에러 발생 안 함)
   - [ ] 검색 결과 반환 (정확도순):
     ```javascript
     {
@@ -409,11 +412,13 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
       y: "37.5645",       // 위도
       telephone: "02-1234-5678",
       link: "https://map.naver.com/v5/search/...",
-      category: "카페"
+      category: "카페",
+      images: [           // ← 새로 추가 (있으면 URL 배열, 없으면 null 또는 빈 배열)
+        "https://...",
+        "https://..."
+      ] || null
     }
     ```
-  - [ ] 사진은 API에서 제공되지 않으므로 별도로 처리하지 않음
-    - [ ] 사용자가 후보지 등록 시 원하면 직접 사진 업로드 가능
 
 ## 장소 검색 컴포넌트 구현
 - [ ] `components/map/LocationSearch.tsx` 생성 ("use client")
@@ -428,7 +433,13 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
 
 ## 장소 상세 정보 InfoWindow 구현
 - [ ] `components/map/LocationInfoWindow.tsx` 생성 ("use client")
-  - [ ] **상단: 기본 정보**
+  - [ ] **상단: 사진 영역 (디폴트)**
+    - [ ] 사진이 있으면: 첫 번째 사진 표시 (가로 4:3 비율)
+    - [ ] 사진이 없으면: "📷 사진 정보가 없습니다" 플레이스홀더 표시
+      - [ ] 배경색: 연한 회색 (#F0F0F0)
+      - [ ] 텍스트: 센터 정렬
+      - [ ] 최소 높이: 180px
+  - [ ] **중단: 기본 정보**
     - [ ] 가게 이름 (큰 텍스트)
     - [ ] 주소 (도로명)
     - [ ] 전화번호 (모바일에서 tel: 링크)
@@ -442,6 +453,7 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
 
 ## 후보지 추가 모달 구현
 - [ ] `components/locations/AddLocationModal.tsx` 생성 ("use client")
+  - [ ] 상단: 사진 미리보기 (있으면 표시, 없으면 플레이스홀더)
   - [ ] 장소명 표시 (읽기 전용)
   - [ ] 주소 표시 (읽기 전용)
   - [ ] 위도/경도 표시 (읽기 전용)
@@ -484,10 +496,10 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
 - [ ] `app/api/projects/[projectId]/locations/route.ts` 생성
   - [ ] `GET` 구현 (후보지 목록 조회 - 투표 정보 JOIN)
   - [ ] `POST` 구현 (후보지 추가)
-    - [ ] 요청 본문: name, address, latitude, longitude, category, memo
+    - [ ] 요청 본문: name, address, latitude, longitude, telephone, naver_link, naver_images[], category, memo
     - [ ] 사용자 인증 확인
     - [ ] locations 테이블에 저장 (added_by 사용자 ID 기록)
-    - [ ] 반환: 생성된 location 객체
+    - [ ] 반환: 생성된 location 객체 (naver_images 포함)
 
 - [ ] `app/api/projects/[projectId]/locations/[locationId]/route.ts` 생성
   - [ ] `DELETE` 구현 (후보지 삭제)
@@ -512,16 +524,20 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
 - [ ] NaverMap 컴포넌트에 마커 클릭/검색 결과 선택 통합
   - [ ] **검색 결과 선택 → 지도에 마커 표시 + InfoWindow**
   - [ ] InfoWindow에 LocationInfoWindow 컴포넌트 렌더링
-  - [ ] "📷 네이버 지도에서 보기" 버튼 클릭 → 새 탭에서 네이버 지도 링크 열기
+    - [ ] 상단: 사진 영역 (있으면 표시, 없으면 "사진 정보가 없습니다" 플레이스홀더)
+    - [ ] 중단: 가게명, 주소, 전화번호
+    - [ ] 하단: "📷 네이버 지도에서 보기" + "➕ 후보지 등록" 버튼
+  - [ ] "📷 네이버 지도에서 보기" 버튼 → 새 탭에서 네이버 지도 링크 열기
     - [ ] 사용자가 실시간 사진, 후기, 메뉴 확인 가능
-  - [ ] "➕ 후보지 등록" 버튼 클릭 → AddLocationModal 열기
+  - [ ] "➕ 후보지 등록" 버튼 → AddLocationModal 열기
 
 - [ ] AddLocationModal에서 후보지 추가
+  - [ ] 상단: 검색 결과에서 얻은 사진 미리보기 (있으면 표시, 없으면 플레이스홀더)
   - [ ] 자동 입력: 장소명, 주소, 좌표, 전화번호, 네이버 링크
   - [ ] 사용자 입력: 카테고리, 메모
   - [ ] "추가" 버튼 → `POST /api/projects/[projectId]/locations` 호출
-    - [ ] 요청 본문: name, address, latitude, longitude, telephone, naver_link, category, memo
-    - [ ] 응답: 생성된 location 객체
+    - [ ] 요청 본문: name, address, latitude, longitude, telephone, naver_link, naver_images[], category, memo
+    - [ ] 응답: 생성된 location 객체 (naver_images 포함)
 
 ## 후보지 목록 및 투표 UI 구현
 - [ ] `components/locations/LocationList.tsx` 생성
@@ -530,8 +546,9 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
   - [ ] 로딩 상태 처리
 
 - [ ] `components/locations/LocationCard.tsx` 생성
-  - [ ] 장소명, 주소, 카테고리, 추가한 사용자명 표시
-  - [ ] **투표 상태 표시** (아래 참조):
+  - [ ] 상단: 사진 미리보기 (있으면 첫 번째 사진 표시, 없으면 플레이스홀더)
+  - [ ] 중단: 장소명, 주소, 카테고리, 추가한 사용자명 표시
+  - [ ] 하단: **투표 상태 표시** (아래 참조):
     - [ ] ✅ 초록 체크: 만장일치 (is_approved = true)
     - [ ] ❌ 검정 X: 만장일치 불가 (is_approved = false)
   - [ ] 투표 버튼 (찬성/반대)
@@ -570,17 +587,25 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
   - [ ] 검색 결과 정확도순 표시 확인
   - [ ] 결과 선택 → 지도에 마커 표시 확인
 
-- [ ] **InfoWindow 표시**:
-  - [ ] 가게명, 주소, 전화번호 표시
-  - [ ] "📷 네이버 지도에서 보기" 버튼 클릭 → 새 탭에서 네이버 지도 열기
+- [ ] **InfoWindow 표시 (사진 포함)**:
+  - [ ] 상단: 사진이 있으면 표시, 없으면 "📷 사진 정보가 없습니다" 플레이스홀더
+  - [ ] 중단: 가게명, 주소, 전화번호 표시
+  - [ ] 하단: "📷 네이버 지도에서 보기" + "➕ 후보지 등록" 버튼
+  - [ ] "📷 네이버 지도에서 보기" 클릭 → 새 탭에서 네이버 지도 열기
     - [ ] 실시간 사진, 후기, 메뉴 확인 가능
-  - [ ] "➕ 후보지 등록" 버튼 클릭 → 모달 열기
 
-- [ ] **후보지 등록**:
-  - [ ] 모달에서 자동 입력 정보 확인 (가게명, 주소, 좌표, 전화번호)
+- [ ] **후보지 등록 (사진 저장)**:
+  - [ ] 모달 상단: 검색 결과의 사진 미리보기 (있으면 표시, 없으면 플레이스홀더)
+  - [ ] 자동 입력 정보 확인 (가게명, 주소, 좌표, 전화번호)
   - [ ] 카테고리 선택 후 메모 입력
   - [ ] "추가" 버튼 클릭
   - [ ] Supabase의 locations 테이블에 저장 확인
+  - [ ] **naver_images 배열이 정상 저장되었는지 확인**
+
+- [ ] **LocationCard 표시 (사진 포함)**:
+  - [ ] 상단: 첫 번째 사진 미리보기 (있으면 표시, 없으면 플레이스홀더)
+  - [ ] 중단: 장소명, 주소, 카테고리, 추가한 사용자명
+  - [ ] 하단: 투표 상태 및 투표 버튼
 
 - [ ] **지도 마커 표시**:
   - [ ] 계정 색깔의 핀 표시 (🔴 creator / 🔵 member)
@@ -897,20 +922,32 @@ Phase 2: ██░░░░░░░░ 20% (2/10 완료)
 ### 전체 흐름 요약
 1. **특정 가게 검색** (핵심 기능):
    - 검색창에 "스타벅스 명동" 또는 "강남 한식" 입력
-   - 네이버 Place Search API → 정확도순 결과 (가게명, 주소, 좌표, 전화, 링크)
+   - 네이버 Place Search API → 정확도순 결과
+     - 기본: 가게명, 주소, 좌표, 전화, 링크
+     - 추가: 사진 URL 배열 (크롤링 시도)
    - 원하는 가게 선택
 
-2. **InfoWindow 표시 및 네이버 지도 확인**:
+2. **InfoWindow 표시 (사진 포함)**:
    - 지도에 마커 표시
-   - InfoWindow: 가게명, 주소, 전화번호
-   - **"📷 네이버 지도에서 보기" 버튼** → 새 탭에서 실시간 사진/후기/메뉴 확인
-   - **"➕ 후보지 등록" 버튼** → 모달 열기
+   - InfoWindow 레이아웃:
+     - **상단**: 사진 (있으면 표시, 없으면 "📷 사진 정보가 없습니다")
+     - **중단**: 가게명, 주소, 전화번호
+     - **하단**: "📷 네이버 지도에서 보기" + "➕ 후보지 등록" 버튼
+   - **"📷 네이버 지도에서 보기"** → 새 탭에서 실시간 사진/후기/메뉴 확인
+   - **"➕ 후보지 등록"** → 모달 열기
 
-3. **후보지 등록**:
-   - 사용자 계정에 맞는 색상 핀 표시 (🔴 creator / 🔵 member)
+3. **후보지 등록 (사진 저장)**:
+   - 모달 상단: 검색 결과의 사진 표시 (있으면 표시, 없으면 플레이스홀더)
+   - 자동 입력: 가게명, 주소, 좌표, 전화, 링크
+   - 사용자 입력: 카테고리, 메모
+   - naver_images[] 배열 저장
    - locations 테이블에 저장
+
+4. **지도에 마커 표시**:
+   - 계정 색상 핀 표시 (🔴 creator / 🔵 member)
    - 후보지 목록에 자동 추가
-3. **투표 (두 명 모두 가능)**:
+
+5. **투표 (두 명 모두 가능)**:
    - LocationCard에서 찬성/반대 투표
    - votes 테이블에 저장
    - Supabase 트리거로 is_approved 자동 계산
