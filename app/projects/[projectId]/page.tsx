@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -23,6 +23,7 @@ import MemberList from "@/components/projects/MemberList";
 import LocationSearch from "@/components/map/LocationSearch";
 import NaverMap from "@/components/map/NaverMap";
 import AddLocationModal from "@/components/map/AddLocationModal";
+import NaverMapScript from "@/components/NaverMapScript";
 
 /**
  * 프로젝트 상세 페이지
@@ -35,6 +36,7 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
+  const mapAreaRef = useRef<HTMLDivElement>(null);
 
   // URL 쿼리 파라미터에서 돌아갈 월 정보 가져오기
   const paramYear = searchParams.get("year");
@@ -257,68 +259,74 @@ export default function ProjectDetailPage() {
   });
 
   return (
-    <div className="w-full min-h-screen bg-slate-50">
-      {/* 헤더 */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={handleGoBack} aria-label="뒤로 가기">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-semibold text-slate-900 flex-1 truncate">{project.title}</h1>
-          {project.role === "creator" && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowDeleteDialog(true)}
-              aria-label="프로젝트 삭제"
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              <Trash2 className="h-5 w-5" />
+    <>
+      {/* 네이버 지도 API 스크립트 로더 - 프로젝트 페이지에서만 로드 */}
+      <NaverMapScript />
+
+      <div className="w-full min-h-screen bg-slate-50">
+        {/* 헤더 */}
+        <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={handleGoBack} aria-label="뒤로 가기">
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-          )}
-        </div>
-      </div>
-
-      {/* 콘텐츠 */}
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Phase 3: 네이버 지도 섹션 */}
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-          <div className="p-6 space-y-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900">장소 검색 및 후보지 등록</h2>
-            <LocationSearch onSearchResults={handleSearchResults} />
+            <h1 className="text-lg font-semibold text-slate-900 flex-1 truncate">
+              {project.title}
+            </h1>
+            {project.role === "creator" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowDeleteDialog(true)}
+                aria-label="프로젝트 삭제"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            )}
           </div>
+        </div>
 
-          {/* 지도 및 정보 패널 */}
-          <div className="flex flex-col lg:flex-row gap-0 lg:gap-0">
-            {/* 좌측: 지도 영역 (lg: 60%) */}
-            <div className="flex-1 lg:border-r lg:border-slate-200">
-              <div className="h-[400px] lg:h-[600px] w-full">
-                <NaverMap
-                  searchResults={searchResults}
-                  selectedLocation={selectedLocation}
-                  onLocationSelect={handleLocationSelect}
-                  onAddLocation={handleAddLocationClick}
-                  className="w-full h-full"
-                />
-              </div>
+        {/* 콘텐츠 */}
+        <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+          {/* Phase 3: 네이버 지도 섹션 */}
+          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+            <div className="p-6 space-y-4 border-b border-slate-200">
+              <h2 className="text-lg font-semibold text-slate-900">장소 검색 및 후보지 등록</h2>
+              <LocationSearch onSearchResults={handleSearchResults} />
             </div>
 
-            {/* 우측: 프로젝트 정보 패널 (lg: 40%) */}
-            <div className="flex-1 p-6 space-y-6 bg-slate-50 lg:bg-white">
-              {/* 프로젝트 정보 카드 */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-slate-900">프로젝트 정보</h3>
-
-                <div>
-                  <label className="text-xs font-medium text-slate-600">날짜</label>
-                  <p className="text-sm text-slate-900">{formattedDate}</p>
+            {/* 지도 및 정보 패널 */}
+            <div className="flex flex-col lg:flex-row gap-0 lg:gap-0">
+              {/* 좌측: 지도 영역 (lg: 60%) */}
+              <div ref={mapAreaRef} className="flex-1 lg:border-r lg:border-slate-200">
+                <div className="h-[400px] lg:h-[600px] w-full">
+                  <NaverMap
+                    searchResults={searchResults}
+                    selectedLocation={selectedLocation}
+                    onLocationSelect={handleLocationSelect}
+                    onAddLocation={handleAddLocationClick}
+                    className="w-full h-full"
+                  />
                 </div>
+              </div>
 
-                <div className="border-t border-slate-200 pt-3">
-                  <label className="text-xs font-medium text-slate-600">상태</label>
-                  <div className="flex gap-2 items-center mt-2">
-                    <span
-                      className={`
+              {/* 우측: 프로젝트 정보 패널 (lg: 40%) */}
+              <div className="flex-1 p-6 space-y-6 bg-slate-50 lg:bg-white">
+                {/* 프로젝트 정보 카드 */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-slate-900">프로젝트 정보</h3>
+
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">날짜</label>
+                    <p className="text-sm text-slate-900">{formattedDate}</p>
+                  </div>
+
+                  <div className="border-t border-slate-200 pt-3">
+                    <label className="text-xs font-medium text-slate-600">상태</label>
+                    <div className="flex gap-2 items-center mt-2">
+                      <span
+                        className={`
                         px-3 py-1 rounded-full text-xs font-medium
                         ${
                           project.status === "active"
@@ -328,85 +336,86 @@ export default function ProjectDetailPage() {
                               : "bg-blue-100 text-blue-700"
                         }
                       `}
-                    >
-                      {project.status === "active"
-                        ? "진행 중"
-                        : project.status === "archived"
-                          ? "보관됨"
-                          : "완료"}
-                    </span>
+                      >
+                        {project.status === "active"
+                          ? "진행 중"
+                          : project.status === "archived"
+                            ? "보관됨"
+                            : "완료"}
+                      </span>
+                    </div>
                   </div>
+
+                  {project.created_at && (
+                    <div className="border-t border-slate-200 pt-3">
+                      <label className="text-xs font-medium text-slate-600">생성일</label>
+                      <p className="text-xs text-slate-600 mt-1">
+                        {format(new Date(project.created_at), "yyyy년 M월 d일 HH:mm", {
+                          locale: ko,
+                        })}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {project.created_at && (
-                  <div className="border-t border-slate-200 pt-3">
-                    <label className="text-xs font-medium text-slate-600">생성일</label>
-                    <p className="text-xs text-slate-600 mt-1">
-                      {format(new Date(project.created_at), "yyyy년 M월 d일 HH:mm", {
-                        locale: ko,
-                      })}
-                    </p>
+                {/* 공유 링크 섹션 */}
+                {project.share_link && (
+                  <div className="border-t border-slate-200 pt-6">
+                    <h3 className="text-sm font-semibold text-slate-900 mb-3">공유 링크</h3>
+                    <ShareLinkButton projectId={project.id} shareLink={project.share_link} />
                   </div>
                 )}
-              </div>
 
-              {/* 공유 링크 섹션 */}
-              {project.share_link && (
+                {/* 멤버 목록 섹션 */}
                 <div className="border-t border-slate-200 pt-6">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3">공유 링크</h3>
-                  <ShareLinkButton projectId={project.id} shareLink={project.share_link} />
+                  <h3 className="text-sm font-semibold text-slate-900 mb-3">멤버</h3>
+                  <MemberList members={project.members} />
                 </div>
-              )}
-
-              {/* 멤버 목록 섹션 */}
-              <div className="border-t border-slate-200 pt-6">
-                <h3 className="text-sm font-semibold text-slate-900 mb-3">멤버</h3>
-                <MemberList members={project.members} />
               </div>
             </div>
           </div>
         </div>
+
+        {/* 후보지 등록 모달 (Phase 3) */}
+        <AddLocationModal
+          isOpen={isAddModalOpen}
+          location={locationToAdd}
+          onClose={() => setIsAddModalOpen(false)}
+          onSubmit={handleAddLocationSubmit}
+        />
+
+        {/* 삭제 확인 다이얼로그 */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>프로젝트 삭제</DialogTitle>
+              <DialogDescription>
+                &quot;{project?.title}&quot; 프로젝트를 삭제하시겠습니까?
+                <br />이 작업은 되돌릴 수 없습니다.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-3 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+                disabled={deleting}
+              >
+                취소
+              </Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                {deleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    삭제 중...
+                  </>
+                ) : (
+                  "삭제"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-
-      {/* 후보지 등록 모달 (Phase 3) */}
-      <AddLocationModal
-        isOpen={isAddModalOpen}
-        location={locationToAdd}
-        onClose={() => setIsAddModalOpen(false)}
-        onSubmit={handleAddLocationSubmit}
-      />
-
-      {/* 삭제 확인 다이얼로그 */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>프로젝트 삭제</DialogTitle>
-            <DialogDescription>
-              &quot;{project?.title}&quot; 프로젝트를 삭제하시겠습니까?
-              <br />이 작업은 되돌릴 수 없습니다.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-3 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteDialog(false)}
-              disabled={deleting}
-            >
-              취소
-            </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  삭제 중...
-                </>
-              ) : (
-                "삭제"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </>
   );
 }
