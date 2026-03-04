@@ -157,7 +157,6 @@ export default function NaverMap({
   /**
    * 3단계: InfoWindow 표시/숨김 및 지도 카메라 이동
    * selectedLocation이 변경될 때 InfoWindow를 업데이트하고 지도를 해당 위치로 이동합니다.
-   * 직접 클릭한 마커와 검색 결과 마커를 모두 처리합니다.
    */
   useEffect(() => {
     if (!mapRef.current || !window.naver || !window.naver.maps) {
@@ -175,40 +174,23 @@ export default function NaverMap({
     }
 
     try {
-      // 직접 클릭인지 검색 결과인지 확인
-      const isManualClick = selectedLocation.isManualClick === true;
-      let selectedMarker: naver.maps.Marker | null = null;
-      let markerPosition: naver.maps.LatLng | null = null;
+      // 선택된 마커 찾기
+      const selectedMarker = markersRef.current.find(
+        (marker) =>
+          marker.getTitle() === selectedLocation.title &&
+          Math.abs(
+            (marker.getPosition() as naver.maps.LatLng).lat() -
+              parseFloat(selectedLocation.y) / 10000000,
+          ) < 0.0001,
+      );
 
-      if (isManualClick && manualMarkerRef.current) {
-        // 직접 클릭: manualMarkerRef 사용
-        selectedMarker = manualMarkerRef.current;
-        markerPosition = selectedMarker.getPosition() as naver.maps.LatLng;
-        console.warn("[NaverMap] 직접 클릭 마커로 InfoWindow 표시");
-      } else {
-        // 검색 결과: markersRef에서 찾기
-        selectedMarker =
-          markersRef.current.find(
-            (marker) =>
-              marker.getTitle() === selectedLocation.title &&
-              Math.abs(
-                (marker.getPosition() as naver.maps.LatLng).lat() -
-                  parseFloat(selectedLocation.y) / 10000000,
-              ) < 0.0001,
-          ) || null;
-
-        if (selectedMarker) {
-          markerPosition = selectedMarker.getPosition() as naver.maps.LatLng;
-          console.warn("[NaverMap] 검색 결과 마커로 InfoWindow 표시");
-        }
-      }
-
-      if (!selectedMarker || !markerPosition) {
+      if (!selectedMarker) {
         console.warn("[NaverMap] 선택된 마커를 찾을 수 없습니다");
         return;
       }
 
       // 지도 카메라를 선택된 위치로 이동
+      const markerPosition = selectedMarker.getPosition() as naver.maps.LatLng;
       mapRef.current.setCenter(markerPosition);
       mapRef.current.setZoom(18); // 상세 보기 줌 레벨
 
