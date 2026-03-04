@@ -125,8 +125,8 @@ export default function NaverMap({
   }, [searchResults, onLocationSelect]);
 
   /**
-   * 3단계: InfoWindow 표시/숨김
-   * selectedLocation이 변경될 때 InfoWindow를 업데이트합니다.
+   * 3단계: InfoWindow 표시/숨김 및 지도 카메라 이동
+   * selectedLocation이 변경될 때 InfoWindow를 업데이트하고 지도를 해당 위치로 이동합니다.
    */
   useEffect(() => {
     if (!mapRef.current || !window.naver || !window.naver.maps) {
@@ -144,43 +144,50 @@ export default function NaverMap({
     }
 
     try {
-      // 선택된 마커 찾기
+      // 선택된 위치의 좌표 계산
+      const latitude = parseFloat(selectedLocation.y) / 10000000;
+      const longitude = parseFloat(selectedLocation.x) / 10000000;
+      const markerPosition = new window.naver.maps.LatLng(latitude, longitude);
+
+      // 지도 카메라를 선택된 위치로 이동
+      mapRef.current.setCenter(markerPosition);
+      mapRef.current.setZoom(18); // 상세 보기 줌 레벨
+
+      console.warn("[NaverMap] 지도 이동 완료: lat=" + latitude + ", lng=" + longitude);
+
+      // 선택된 마커 찾기 (InfoWindow 표시용)
       const selectedMarker = markersRef.current.find(
         (marker) =>
           marker.getTitle() === selectedLocation.title &&
-          Math.abs(
-            (marker.getPosition() as naver.maps.LatLng).lat() -
-              parseFloat(selectedLocation.y) / 10000000,
-          ) < 0.0001,
+          Math.abs((marker.getPosition() as naver.maps.LatLng).lat() - latitude) < 0.0001,
       );
 
-      if (!selectedMarker) {
-        console.warn("[NaverMap] 선택된 마커를 찾을 수 없습니다");
-        return;
+      if (selectedMarker) {
+        // InfoWindow를 위한 DOM 컨테이너 생성
+        if (!infoWindowContainerRef.current) {
+          infoWindowContainerRef.current = document.createElement("div");
+        }
+
+        // InfoWindow 생성
+        const infoWindow = new window.naver.maps.InfoWindow({
+          content: infoWindowContainerRef.current,
+          position: markerPosition,
+          maxWidth: 320,
+          backgroundColor: "transparent",
+          borderColor: "transparent",
+          borderWidth: 0,
+          anchorSize: new window.naver.maps.Size(0, 0),
+        });
+
+        infoWindow.open(mapRef.current, selectedMarker);
+        infoWindowRef.current = infoWindow;
+
+        console.warn("[NaverMap] InfoWindow 표시 완료:", selectedLocation.title);
+      } else {
+        console.warn("[NaverMap] 선택된 마커를 찾을 수 없습니다 (InfoWindow 미표시)");
       }
-
-      // InfoWindow를 위한 DOM 컨테이너 생성
-      if (!infoWindowContainerRef.current) {
-        infoWindowContainerRef.current = document.createElement("div");
-      }
-
-      // InfoWindow 생성
-      const infoWindow = new window.naver.maps.InfoWindow({
-        content: infoWindowContainerRef.current,
-        position: selectedMarker.getPosition() as naver.maps.LatLng,
-        maxWidth: 320,
-        backgroundColor: "transparent",
-        borderColor: "transparent",
-        borderWidth: 0,
-        anchorSize: new window.naver.maps.Size(0, 0),
-      });
-
-      infoWindow.open(mapRef.current, selectedMarker);
-      infoWindowRef.current = infoWindow;
-
-      console.warn("[NaverMap] InfoWindow 표시 완료:", selectedLocation.title);
     } catch (error) {
-      console.error("[NaverMap] InfoWindow 표시 실패:", error);
+      console.error("[NaverMap] 처리 실패:", error);
     }
   }, [selectedLocation]);
 
