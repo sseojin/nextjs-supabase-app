@@ -138,6 +138,18 @@ export default function ProjectDetailPage() {
   };
 
   /**
+   * 검색 결과 항목을 클릭했을 때 호출
+   * 선택된 위치를 업데이트하고 지도 영역으로 스크롤
+   */
+  const handleSelectLocationFromSearch = (location: LocationSearchResult) => {
+    setSelectedLocation(location);
+    // 지도 영역으로 부드럽게 스크롤 (검색창이 가려지지 않도록)
+    setTimeout(() => {
+      mapAreaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
+  /**
    * LocationInfoWindow의 "후보지 등록" 버튼 클릭 시
    * 모달을 열고 등록할 장소 설정
    */
@@ -293,7 +305,10 @@ export default function ProjectDetailPage() {
           <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
             <div className="p-6 space-y-4 border-b border-slate-200">
               <h2 className="text-lg font-semibold text-slate-900">장소 검색 및 후보지 등록</h2>
-              <LocationSearch onSearchResults={handleSearchResults} />
+              <LocationSearch
+                onSearchResults={handleSearchResults}
+                onSelectLocation={handleSelectLocationFromSearch}
+              />
             </div>
 
             {/* 지도 및 정보 패널 */}

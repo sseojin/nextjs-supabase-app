@@ -13,7 +13,11 @@ import type { LocationSearchProps, LocationSearchResult } from "@/lib/types/loca
  * 사용자 입력을 받아 검색어로 장소를 검색하고 결과를 부모 컴포넌트로 전달합니다.
  * Enter 키 또는 검색 버튼으로 검색 실행
  */
-export default function LocationSearch({ onSearchResults, className }: LocationSearchProps) {
+export default function LocationSearch({
+  onSearchResults,
+  onSelectLocation,
+  className,
+}: LocationSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<LocationSearchResult[]>([]);
@@ -109,9 +113,10 @@ export default function LocationSearch({ onSearchResults, className }: LocationS
           <h3 className="text-sm font-semibold text-slate-700">검색 결과 ({results.length}개)</h3>
           <div className="space-y-2">
             {results.map((result, index) => (
-              <div
+              <button
                 key={`${result.title}-${result.x}-${result.y}`}
-                className="flex gap-3 items-start"
+                onClick={() => onSelectLocation?.(result)}
+                className="w-full flex gap-3 items-start p-3 rounded-md hover:bg-blue-50 active:bg-blue-100 transition-colors text-left"
               >
                 {/* 번호 배지 */}
                 <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 bg-blue-600 text-white rounded-full text-xs font-semibold">
@@ -125,7 +130,7 @@ export default function LocationSearch({ onSearchResults, className }: LocationS
                     {result.roadAddress || result.address}
                   </p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

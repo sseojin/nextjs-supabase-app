@@ -85,5 +85,6 @@ export interface NaverMapProps {
  */
 export interface LocationSearchProps {
   onSearchResults: (results: LocationSearchResult[]) => void;
+  onSelectLocation?: (location: LocationSearchResult) => void;
   className?: string;
 }

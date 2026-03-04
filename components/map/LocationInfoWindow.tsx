@@ -22,7 +22,7 @@ export default function LocationInfoWindow({
   };
 
   return (
-    <div className="w-72 bg-white rounded-lg shadow-lg overflow-hidden border border-slate-200">
+    <div className="w-36 bg-white rounded-lg shadow-lg overflow-hidden border border-slate-200">
       {/* 사진 미리보기 또는 플레이스홀더 */}
       <div className="relative w-full h-32 bg-slate-100 flex items-center justify-center overflow-hidden">
         {location.images && location.images.length > 0 ? (
