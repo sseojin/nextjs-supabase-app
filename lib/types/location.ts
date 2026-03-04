@@ -13,7 +13,6 @@ export interface LocationSearchResult {
   naverMapLink: string; // 네이버 지도 링크 (필수)
   category?: string;
   images?: string[] | null; // 크롤링한 사진 URL 배열 또는 null
-  isManualClick?: boolean; // 직접 클릭 플래그 (true = 직접 클릭, false/undefined = 검색 결과)
 }
 
 /**
@@ -86,6 +85,5 @@ export interface NaverMapProps {
  */
 export interface LocationSearchProps {
   onSearchResults: (results: LocationSearchResult[]) => void;
-  onSelectLocation?: (location: LocationSearchResult) => void;
   className?: string;
 }
