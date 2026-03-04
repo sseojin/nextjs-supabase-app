@@ -1,16 +1,9 @@
-#!/bin/sh
-if [ -z "$husky_skip_init" ]; then
-  debug () {
-    if [ "$HUSKY_DEBUG" = "1" ]; then
-      echo "husky (debug) - $1"
-    fi
-  }
+echo "husky - DEPRECATED
 
-  readonly hook_name="$(basename -- "$0")"
-  debug "running $hook_name"
-  if ! command -v husky &> /dev/null; then
-    echo "husky: command not found (install it with 'npm install husky --save-dev')"
-    exit 1
-  fi
-  . "$(husky exec)" "$hook_name" "$@"
-fi
+Please remove the following two lines from $0:
+
+#!/usr/bin/env sh
+. \"\$(dirname -- \"\$0\")/_/husky.sh\"
+
+They WILL FAIL in v10.0.0
+"

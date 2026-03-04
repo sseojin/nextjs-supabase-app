@@ -26,6 +26,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Naver Map API 스크립트 로드 */}
+        <script
+          src={`https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID}`}
+          async
+          defer
+        />
+      </head>
       <body className={`${geistSans.className} antialiased bg-white text-gray-900`}>
         <ThemeProvider
           attribute="class"
