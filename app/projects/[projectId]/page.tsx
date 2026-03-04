@@ -4,14 +4,25 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ArrowLeft, Loader2, Users, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { ProjectWithMembers } from "@/lib/types/project";
+import type { LocationSearchResult, AddLocationData } from "@/lib/types/location";
 import ShareLinkButton from "@/components/projects/ShareLinkButton";
 import MemberList from "@/components/projects/MemberList";
+import LocationSearch from "@/components/map/LocationSearch";
+import NaverMap from "@/components/map/NaverMap";
+import AddLocationModal from "@/components/map/AddLocationModal";
 
 /**
  * 프로젝트 상세 페이지
@@ -34,6 +45,12 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Phase 3: 네이버 지도 관련 상태
+  const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<LocationSearchResult | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [locationToAdd, setLocationToAdd] = useState<LocationSearchResult | null>(null);
 
   /**
    * 뒤로가기 핸들러
@@ -98,6 +115,61 @@ export default function ProjectDetailPage() {
       fetchProject();
     }
   }, [projectId]);
+
+  /**
+   * LocationSearch에서 검색 결과를 받아 처리
+   * 첫 번째 결과를 자동으로 선택
+   */
+  const handleSearchResults = (results: LocationSearchResult[]) => {
+    setSearchResults(results);
+    if (results.length > 0) {
+      setSelectedLocation(results[0]);
+    }
+  };
+
+  /**
+   * NaverMap에서 마커 클릭 시 호출
+   * 선택된 장소 업데이트
+   */
+  const handleLocationSelect = (location: LocationSearchResult | null) => {
+    setSelectedLocation(location);
+  };
+
+  /**
+   * LocationInfoWindow의 "후보지 등록" 버튼 클릭 시
+   * 모달을 열고 등록할 장소 설정
+   */
+  const handleAddLocationClick = () => {
+    if (selectedLocation) {
+      setLocationToAdd(selectedLocation);
+      setIsAddModalOpen(true);
+    }
+  };
+
+  /**
+   * AddLocationModal 제출 핸들러
+   * Phase 4에서 POST /api/projects/{projectId}/locations 연동 예정
+   * 현재는 콘솔 로그 + 토스트 메시지로 준비 상황 표시
+   */
+  const handleAddLocationSubmit = async (data: AddLocationData) => {
+    try {
+      // Phase 4에서 구현할 API 호출
+      // const response = await fetch(`/api/projects/${projectId}/locations`, {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify(data),
+      // });
+
+      // 현재는 콘솔 로그와 토스트로 진행 상황 표시
+      console.warn("[Phase 4 준비] 후보지 등록 데이터:", data);
+      toast.info("Phase 4에서 API 연동 예정입니다");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "후보지 등록 중 오류가 발생했습니다";
+      console.error("후보지 등록 에러:", error);
+      throw new Error(errorMessage);
+    }
+  };
 
   /**
    * 프로젝트 삭제 핸들러
@@ -188,18 +260,11 @@ export default function ProjectDetailPage() {
     <div className="w-full min-h-screen bg-slate-50">
       {/* 헤더 */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleGoBack}
-            aria-label="뒤로 가기"
-          >
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={handleGoBack} aria-label="뒤로 가기">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold text-slate-900 flex-1 truncate">
-            {project.title}
-          </h1>
+          <h1 className="text-lg font-semibold text-slate-900 flex-1 truncate">{project.title}</h1>
           {project.role === "creator" && (
             <Button
               variant="ghost"
@@ -215,65 +280,101 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* 콘텐츠 */}
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* 프로젝트 정보 카드 */}
-        <div className="bg-white rounded-lg border border-slate-200 p-6 space-y-4">
-          <div>
-            <h3 className="text-sm font-medium text-slate-600 mb-1">날짜</h3>
-            <p className="text-base text-slate-900">{formattedDate}</p>
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Phase 3: 네이버 지도 섹션 */}
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+          <div className="p-6 space-y-4 border-b border-slate-200">
+            <h2 className="text-lg font-semibold text-slate-900">장소 검색 및 후보지 등록</h2>
+            <LocationSearch onSearchResults={handleSearchResults} />
           </div>
 
-          <div className="border-t border-slate-200 pt-4">
-            <h3 className="text-sm font-medium text-slate-600 mb-2">상태</h3>
-            <div className="flex gap-2 items-center">
-              <span
-                className={`
-                  px-3 py-1 rounded-full text-xs font-medium
-                  ${
-                    project.status === "active"
-                      ? "bg-green-100 text-green-700"
-                      : project.status === "archived"
-                        ? "bg-gray-100 text-gray-700"
-                        : "bg-blue-100 text-blue-700"
-                  }
-                `}
-              >
-                {project.status === "active"
-                  ? "진행 중"
-                  : project.status === "archived"
-                    ? "보관됨"
-                    : "완료"}
-              </span>
+          {/* 지도 및 정보 패널 */}
+          <div className="flex flex-col lg:flex-row gap-0 lg:gap-0">
+            {/* 좌측: 지도 영역 (lg: 60%) */}
+            <div className="flex-1 lg:border-r lg:border-slate-200">
+              <div className="h-[400px] lg:h-[600px] w-full">
+                <NaverMap
+                  searchResults={searchResults}
+                  selectedLocation={selectedLocation}
+                  onLocationSelect={handleLocationSelect}
+                  onAddLocation={handleAddLocationClick}
+                  className="w-full h-full"
+                />
+              </div>
+            </div>
+
+            {/* 우측: 프로젝트 정보 패널 (lg: 40%) */}
+            <div className="flex-1 p-6 space-y-6 bg-slate-50 lg:bg-white">
+              {/* 프로젝트 정보 카드 */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-slate-900">프로젝트 정보</h3>
+
+                <div>
+                  <label className="text-xs font-medium text-slate-600">날짜</label>
+                  <p className="text-sm text-slate-900">{formattedDate}</p>
+                </div>
+
+                <div className="border-t border-slate-200 pt-3">
+                  <label className="text-xs font-medium text-slate-600">상태</label>
+                  <div className="flex gap-2 items-center mt-2">
+                    <span
+                      className={`
+                        px-3 py-1 rounded-full text-xs font-medium
+                        ${
+                          project.status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : project.status === "archived"
+                              ? "bg-gray-100 text-gray-700"
+                              : "bg-blue-100 text-blue-700"
+                        }
+                      `}
+                    >
+                      {project.status === "active"
+                        ? "진행 중"
+                        : project.status === "archived"
+                          ? "보관됨"
+                          : "완료"}
+                    </span>
+                  </div>
+                </div>
+
+                {project.created_at && (
+                  <div className="border-t border-slate-200 pt-3">
+                    <label className="text-xs font-medium text-slate-600">생성일</label>
+                    <p className="text-xs text-slate-600 mt-1">
+                      {format(new Date(project.created_at), "yyyy년 M월 d일 HH:mm", {
+                        locale: ko,
+                      })}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* 공유 링크 섹션 */}
+              {project.share_link && (
+                <div className="border-t border-slate-200 pt-6">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-3">공유 링크</h3>
+                  <ShareLinkButton projectId={project.id} shareLink={project.share_link} />
+                </div>
+              )}
+
+              {/* 멤버 목록 섹션 */}
+              <div className="border-t border-slate-200 pt-6">
+                <h3 className="text-sm font-semibold text-slate-900 mb-3">멤버</h3>
+                <MemberList members={project.members} />
+              </div>
             </div>
           </div>
-
-          {project.created_at && (
-            <div className="border-t border-slate-200 pt-4">
-              <h3 className="text-sm font-medium text-slate-600 mb-1">생성일</h3>
-              <p className="text-sm text-slate-600">
-                {format(new Date(project.created_at), "yyyy년 M월 d일 HH:mm", {
-                  locale: ko,
-                })}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* 공유 링크 버튼 */}
-        {project.share_link && (
-          <ShareLinkButton projectId={project.id} shareLink={project.share_link} />
-        )}
-
-        {/* 멤버 목록 */}
-        <MemberList members={project.members} />
-
-        {/* 주석: Phase 3 기능 예정 */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-700">
-            💡 <strong>Phase 3:</strong> 네이버 지도 및 후보지 관리
-          </p>
         </div>
       </div>
+
+      {/* 후보지 등록 모달 (Phase 3) */}
+      <AddLocationModal
+        isOpen={isAddModalOpen}
+        location={locationToAdd}
+        onClose={() => setIsAddModalOpen(false)}
+        onSubmit={handleAddLocationSubmit}
+      />
 
       {/* 삭제 확인 다이얼로그 */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -281,9 +382,8 @@ export default function ProjectDetailPage() {
           <DialogHeader>
             <DialogTitle>프로젝트 삭제</DialogTitle>
             <DialogDescription>
-              "{project?.title}" 프로젝트를 삭제하시겠습니까?
-              <br />
-              이 작업은 되돌릴 수 없습니다.
+              &quot;{project?.title}&quot; 프로젝트를 삭제하시겠습니까?
+              <br />이 작업은 되돌릴 수 없습니다.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-3 sm:gap-0">
@@ -294,11 +394,7 @@ export default function ProjectDetailPage() {
             >
               취소
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
               {deleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

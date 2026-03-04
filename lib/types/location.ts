@@ -68,3 +68,22 @@ export interface NaverMapMarker {
   lng: number;
   color?: "red" | "blue" | "green" | "black"; // 🔴 🔵 🟢 ⚫
 }
+
+/**
+ * NaverMap 컴포넌트 Props
+ */
+export interface NaverMapProps {
+  searchResults: LocationSearchResult[];
+  selectedLocation: LocationSearchResult | null;
+  onLocationSelect: (location: LocationSearchResult | null) => void;
+  onAddLocation?: () => void;
+  className?: string;
+}
+
+/**
+ * LocationSearch 컴포넌트 Props
+ */
+export interface LocationSearchProps {
+  onSearchResults: (results: LocationSearchResult[]) => void;
+  className?: string;
+}
