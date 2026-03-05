@@ -527,148 +527,137 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
 
 ---
 
-# 🎯 Phase 4: 후보지 등록 및 투표 시스템 (3일)
+# 🎯 Phase 4: 후보지 등록 및 투표 시스템 - 실시간 투표 (3일)
+
+## 후보지 데이터베이스 스키마 추가
+
+- [ ] `supabase/migrations/` 마이그레이션 파일 생성
+  - [ ] `candidates` 테이블 (기존 locations와 다른 새 테이블)
+    - [ ] id, project_id, location_name, address, category, created_by
+    - [ ] votes_agree, votes_disagree (실시간 업데이트)
+    - [ ] created_at, updated_at
+  - [ ] `candidate_votes` 테이블
+    - [ ] id, candidate_id, user_id, vote_type ('agree' | 'disagree')
+    - [ ] 복합 유니크: (candidate_id, user_id) - 중복 투표 방지
+  - [ ] RLS 정책: 프로젝트 멤버만 투표 가능
+
+## 최종 장소 데이터베이스 스키마 추가
+
+- [ ] `final_locations` 테이블 생성
+  - [ ] id, project_id, candidate_id, location_name, address, category
+  - [ ] lat, lng, votes_agree, votes_disagree, agreement_ratio
+  - [ ] 복합 유니크: (project_id, candidate_id) - 중복 저장 방지
+  - [ ] 찬성 >= 66%인 후보지만 자동 저장
 
 ## 후보지 쿼리 함수 구현
 
-- [ ] `lib/supabase/queries/locations.ts` 생성
-  - [ ] `getLocationsByProject(projectId)` - 프로젝트 후보지 조회 (투표 정보 포함)
-  - [ ] `createLocation(projectId, userId, data)` - 후보지 추가
-  - [ ] `deleteLocation(locationId)` - 후보지 삭제
-  - [ ] `updateLocationApprovalStatus(locationId, isApproved)` - 만장일치 상태 업데이트
+- [ ] `lib/supabase/queries/candidates.ts` 생성
+  - [ ] `getCandidates(projectId)` - 프로젝트 후보지 조회 (투표 수 포함)
+  - [ ] `createCandidate(candidate)` - 후보지 등록
+  - [ ] `deleteCandidate(candidateId)` - 후보지 삭제
+  - [ ] `voteCandidate(candidateId, userId, voteType)` - 투표
 
 ## 후보지 API 라우트 구현
 
-- [ ] `app/api/projects/[projectId]/locations/route.ts` 생성
-  - [ ] `GET` 구현 (후보지 목록 조회 - 투표 정보 JOIN)
-  - [ ] `POST` 구현 (후보지 추가)
-    - [ ] 요청 본문: name, address, latitude, longitude, telephone, naver_link, naver_images[], category, memo
-    - [ ] 사용자 인증 확인
-    - [ ] locations 테이블에 저장 (added_by 사용자 ID 기록)
-    - [ ] 반환: 생성된 location 객체 (naver_images 포함)
+- [ ] `app/api/projects/[projectId]/candidates/route.ts` 생성
+  - [ ] `GET` 구현 (후보지 목록 조회 - 투표 수 포함)
+  - [ ] `POST` 구현 (후보지 등록)
+    - [ ] 요청: { location_name, address, category }
+    - [ ] 응답: { id, ...candidate, votes_agree, votes_disagree }
 
-- [ ] `app/api/projects/[projectId]/locations/[locationId]/route.ts` 생성
-  - [ ] `DELETE` 구현 (후보지 삭제)
-  - [ ] `PUT` 구현 (후보지 수정)
+- [ ] `app/api/projects/[projectId]/candidates/[candidateId]/route.ts` 생성
+  - [ ] `DELETE` 구현 (후보지 삭제 - 모든 사용자 가능)
 
-## 투표 쿼리 함수 구현
+- [ ] `app/api/projects/[projectId]/candidates/[candidateId]/vote/route.ts` 생성
+  - [ ] `POST` 구현 (투표 생성/변경/취소)
+    - [ ] 요청: { vote_type: 'agree' | 'disagree' }
+    - [ ] 응답: { votes_agree, votes_disagree, user_vote, agreement_ratio }
+    - [ ] 자동: 찬성 >= 66% → final_locations에 저장
 
-- [ ] `lib/supabase/queries/votes.ts` 생성
-  - [ ] `createOrUpdateVote(locationId, userId, vote)` - 투표 생성/수정
-  - [ ] `deleteVote(locationId, userId)` - 투표 삭제
-  - [ ] `getVotesByLocation(locationId)` - 특정 장소의 투표 조회
+## 최종 장소 저장 API 구현
 
-## 투표 API 라우트 구현
+- [ ] `app/api/projects/[projectId]/final-locations/route.ts` 생성
+  - [ ] `POST` 구현 (최종 장소 저장)
+    - [ ] 자동 호출: 투표 결과가 66% 이상이면 자동 저장
+    - [ ] 중복 저장 방지
+  - [ ] `DELETE` 구현 (찬성 < 66%시 자동 삭제)
+  - [ ] `GET` 구현 (최종 장소 목록 조회)
 
-- [ ] `app/api/projects/[projectId]/locations/[locationId]/vote/route.ts` 생성
-  - [ ] `POST` 구현 (투표 생성 또는 수정)
-    - [ ] 요청 본문: vote (true: 찬성, false: 반대)
-    - [ ] 사용자 인증 확인
-    - [ ] votes 테이블에 UPSERT
-    - [ ] 투표 후 해당 location의 is_approved 상태 자동 계산
-    - [ ] 성공 시: 업데이트된 location 객체 반환 (투표 정보 포함)
+## 후보지 카드 컴포넌트 (탭 시스템 내)
 
-## 지도에서 후보지 등록 통합 흐름
+- [ ] `components/projects/CandidateCard.tsx` 생성 ("use client")
+  - [ ] **헤더**: 번호 배지(1,2,3...), 장소명, 주소, 카테고리, 지도 링크
+  - [ ] **중단 (투표)**:
+    - [ ] 좌측: "[👍] N명 │ [👎] N명" (투표 현황)
+    - [ ] 우측: "✓" or "✕" or "-" (결과 아이콘, 40-48px, 크게)
+    - [ ] 우측 상단: "[✕ 삭제]" 버튼 (모든 사용자 표시)
+  - [ ] **로직**:
+    - [ ] 클릭 즉시 사람 수 업데이트 (낙관적 업데이트)
+    - [ ] 투표 변경: 찬성→반대 시 찬성 -1, 반대 +1
+    - [ ] 투표 취소: 같은 버튼 재클릭 시 -1
+    - [ ] 결과 실시간 변경: ✓(초록) / ✕(검정) / -(회색)
+    - [ ] 최종 선정: ⭐ "최종 선정됨" 표시, 배경색 강조
 
-- [ ] NaverMap 컴포넌트에 마커 클릭/검색 결과 선택 통합
-  - [ ] **검색 결과 선택 → 지도에 마커 표시 + InfoWindow**
-  - [ ] InfoWindow에 LocationInfoWindow 컴포넌트 렌더링
-    - [ ] 상단: 사진 영역 (있으면 표시, 없으면 "사진 정보가 없습니다" 플레이스홀더)
-    - [ ] 중단: 가게명, 주소, 전화번호
-    - [ ] 하단: "📷 네이버 지도에서 보기" + "➕ 후보지 등록" 버튼
-  - [ ] "📷 네이버 지도에서 보기" 버튼 → 새 탭에서 네이버 지도 링크 열기
-    - [ ] 사용자가 실시간 사진, 후기, 메뉴 확인 가능
-  - [ ] "➕ 후보지 등록" 버튼 → AddLocationModal 열기
+## 지도 마커 색상 변경 로직
 
-- [ ] AddLocationModal에서 후보지 추가
-  - [ ] 상단: 검색 결과에서 얻은 사진 미리보기 (있으면 표시, 없으면 플레이스홀더)
-  - [ ] 자동 입력: 장소명, 주소, 좌표, 전화번호, 네이버 링크
-  - [ ] 사용자 입력: 카테고리, 메모
-  - [ ] "추가" 버튼 → `POST /api/projects/[projectId]/locations` 호출
-    - [ ] 요청 본문: name, address, latitude, longitude, telephone, naver_link, naver_images[], category, memo
-    - [ ] 응답: 생성된 location 객체 (naver_images 포함)
+- [ ] `components/map/NaverMap.tsx` 수정
+  - [ ] 마커 색상 계산 함수: `getMarkerColor(candidate)`
+    - [ ] 투표 없음(0/0): 회색 (#9CA3AF)
+    - [ ] 찬성 < 66%: 빨강 (#EF4444)
+    - [ ] 찬성 >= 66%: 초록 (#10B981)
+  - [ ] 후보지 데이터 변경 → 마커 색상 실시간 업데이트
+  - [ ] 초록 마커 = 최종 선정된 장소
 
-## 후보지 목록 및 투표 UI 구현
+## 후보지 목록 컴포넌트 (탭 콘텐츠)
 
-- [ ] `components/locations/LocationList.tsx` 생성
-  - [ ] projectId 받기
-  - [ ] API에서 후보지 목록 조회 (투표 정보 포함)
-  - [ ] 로딩 상태 처리
+- [ ] `components/projects/CandidateList.tsx` 생성 ("use client")
+  - [ ] GET /api/projects/:id/candidates 호출 (초기 로드)
+  - [ ] CandidateCard[] 렌더링
+  - [ ] 로딩/에러/빈 목록 상태 처리
 
-- [ ] `components/locations/LocationCard.tsx` 생성
-  - [ ] 상단: 사진 미리보기 (있으면 첫 번째 사진 표시, 없으면 플레이스홀더)
-  - [ ] 중단: 장소명, 주소, 카테고리, 추가한 사용자명 표시
-  - [ ] 하단: **투표 상태 표시** (아래 참조):
-    - [ ] ✅ 초록 체크: 만장일치 (is_approved = true)
-    - [ ] ❌ 검정 X: 만장일치 불가 (is_approved = false)
-  - [ ] 투표 버튼 (찬성/반대)
-    - [ ] 현재 사용자의 투표 상태 표시
-    - [ ] 클릭 시 `POST /api/projects/[projectId]/locations/[locationId]/vote` 호출
+## 프로젝트 페이지 탭 시스템 통합
 
-## 지도에서 마커 표시 (핀 이모티콘)
+- [ ] `app/projects/[projectId]/page.tsx` 수정
+  - [ ] 탭 시스템 적용 (정보, 멤버, 후보지)
+  - [ ] **데스크톱**: 지도(60%) + 우측 패널 탭(40%)
+  - [ ] **모바일**: 지도 + 하단 탭 패널(고정)
+  - [ ] 후보지 탭에 CandidateList 컴포넌트 렌더링
 
-- [ ] NaverMap 컴포넌트에서 후보지 목록 받기
-  - [ ] projectId와 locations 데이터 받기
+## 반응형 Tailwind 스타일링
 
-- [ ] **각 후보지별 작은 핀 이모티콘 표시**:
-  - [ ] **등록한 사용자 색상** (기본):
-    - [ ] 🔴 creator가 등록: 빨간 핀
-    - [ ] 🔵 member가 등록: 파란 핀
-  - [ ] **투표 결과에 따라 색상 변경**:
-    - [ ] 🟢 만장일치 (is_approved = true): 초록 핀
-    - [ ] ⚫ 만장일치 불가 (is_approved = false): 검은 핀
+- [ ] 모바일 (< md):
+  - [ ] 지도: h-[400px]
+  - [ ] 탭 패널: fixed bottom-0 h-[300px]
+  - [ ] 투표 버튼: 풀 너비 (gap-2)
+  - [ ] 결과 아이콘: 중앙에 크게
 
-- [ ] 마커 클릭 이벤트
-  - [ ] InfoWindow 표시 (장소명, 주소, 추가한 사용자, 현재 투표 상태)
-  - [ ] **"후보지 등록" 버튼** (이미 등록된 장소면 버튼 제거)
-
-## 투표 결과 DB 업데이트 자동화
-
-- [ ] Supabase 트리거 함수 추가 (`03_add_locations_votes_schema.sql`)
-  - [ ] `check_location_approval()` 함수 구현
-    - [ ] votes 테이블 변경 감지
-    - [ ] 프로젝트 멤버 수 확인
-    - [ ] 현재 location의 총 찬성 투표 수 계산
-    - [ ] 찬성 투표 수 = 멤버 수일 때 → is_approved = true
-    - [ ] 아니면 → is_approved = false
-  - [ ] 트리거 생성 (`after insert or update on votes`)
+- [ ] 데스크톱 (md 이상):
+  - [ ] 레이아웃: lg:flex lg:gap-4
+  - [ ] 지도: lg:w-3/5
+  - [ ] 우측: lg:w-2/5 (sticky)
+  - [ ] 투표: "[👍] 2명 │ [👎] 1명 │ ✓" 한 줄
 
 ## 기능 테스트 (Phase 4)
 
-- [ ] **검색 기능**:
-  - [ ] 검색창에 "스타벅스 명동" 입력
-  - [ ] 검색 결과 정확도순 표시 확인
-  - [ ] 결과 선택 → 지도에 마커 표시 확인
+- [ ] **실시간 투표**:
+  - [ ] "[👍] 1명"에서 클릭 → 즉시 "[👍] 2명"으로 변경
+  - [ ] 결과: - (회색) → ✓ (초록) 또는 ✕ (검정)
+  - [ ] 투표 변경: 찬성→반대 시 -1/+1 자동 조정
+  - [ ] 투표 취소: 같은 버튼 재클릭 시 -1
 
-- [ ] **InfoWindow 표시 (사진 포함)**:
-  - [ ] 상단: 사진이 있으면 표시, 없으면 "📷 사진 정보가 없습니다" 플레이스홀더
-  - [ ] 중단: 가게명, 주소, 전화번호 표시
-  - [ ] 하단: "📷 네이버 지도에서 보기" + "➕ 후보지 등록" 버튼
-  - [ ] "📷 네이버 지도에서 보기" 클릭 → 새 탭에서 네이버 지도 열기
-    - [ ] 실시간 사진, 후기, 메뉴 확인 가능
+- [ ] **지도 마커 색상**:
+  - [ ] 투표 없음: 회색 마커
+  - [ ] 찬성 < 66%: 빨강 마커
+  - [ ] 찬성 >= 66%: 초록 마커 (실시간 변경)
 
-- [ ] **후보지 등록 (사진 저장)**:
-  - [ ] 모달 상단: 검색 결과의 사진 미리보기 (있으면 표시, 없으면 플레이스홀더)
-  - [ ] 자동 입력 정보 확인 (가게명, 주소, 좌표, 전화번호)
-  - [ ] 카테고리 선택 후 메모 입력
-  - [ ] "추가" 버튼 클릭
-  - [ ] Supabase의 locations 테이블에 저장 확인
-  - [ ] **naver_images 배열이 정상 저장되었는지 확인**
+- [ ] **최종 선정**:
+  - [ ] 초록 마커 = final_locations에 저장
+  - [ ] 카드에 ⭐ "최종 선정됨" 표시
+  - [ ] 배경색 강조 (bg-green-50)
 
-- [ ] **LocationCard 표시 (사진 포함)**:
-  - [ ] 상단: 첫 번째 사진 미리보기 (있으면 표시, 없으면 플레이스홀더)
-  - [ ] 중단: 장소명, 주소, 카테고리, 추가한 사용자명
-  - [ ] 하단: 투표 상태 및 투표 버튼
-
-- [ ] **지도 마커 표시**:
-  - [ ] 계정 색깔의 핀 표시 (🔴 creator / 🔵 member)
-  - [ ] 후보지 목록에 자동 추가
-
-- [ ] **투표 및 상태 변경**:
-  - [ ] A 사용자가 찬성 투표 → 마커 색상 유지 (기본 색)
-  - [ ] B 사용자도 찬성 투표 → 마커 색상 변경 (초록 핀)
-  - [ ] LocationCard에 "✅" 표시 확인
-  - [ ] 반대 투표 시나리오 → 검은 핀 + "❌" 표시 확인
+- [ ] **모바일/데스크톱 레이아웃**:
+  - [ ] 모바일: 수직 스택, 결과 아이콘 중앙에 크게
+  - [ ] 데스크톱: 한 줄 레이아웃, 결과 우측에 크게
 
 ---
 

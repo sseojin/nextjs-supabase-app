@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { LogoutButton } from "@/components/logout-button";
 
 /**
  * 대시보드 레이아웃 (보호된 라우트)
@@ -22,7 +23,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <header className="w-full border-b border-slate-200 bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-slate-900">📅 Date Planner</h1>
-          <div className="text-sm text-slate-600">{data.user.email}</div>
+          <div className="flex items-center gap-3">
+            <div className="text-sm font-bold text-slate-600 scale-110">
+              {data.user.user_metadata?.name || data.user.email}님
+            </div>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 

@@ -217,6 +217,350 @@
       "implementationGuide": "테스트 시나리오:\n\n1. 기본 참여 플로우:\n   - A 계정에서 프로젝트 생성\n   - 프로젝트 상세 페이지 접속\n   - ShareLinkButton에서 공유 링크 복사\n   - 브라우저 시크릿 창 (또는 B 계정)에서 링크 접속\n   - /join/[shareLink] 페이지 로드 확인\n   - B 계정으로 로그인\n   - 참여하기 버튼 클릭\n   - 성공 토스트 표시\n   - /projects/[projectId]로 리다이렉트\n   - MemberList에 B 사용자 추가 확인 (파란 배지)\n\n2. 캘린더 연동 확인:\n   - A 계정의 캘린더에서 프로젝트 빨강 배지\n   - B 계정의 캘린더에서 프로젝트 파랑 배지\n\n3. 에러 케이스:\n   - 이미 참여한 멤버 재참여: 409 에러, '이미 참여한 프로젝트입니다' 토스트\n   - 2명 이상 참여 시도: 409 에러, '최대 2명까지만 참여 가능합니다' 토스트\n   - 유효하지 않은 공유 링크: 404 페이지\n   - 미로그인 상태에서 링크 접속: /auth/login으로 리다이렉트\n\n4. UI 검증:\n   - 모바일 (375px): 수직 레이아웃\n   - 태블릿+ (md:): 반응형 레이아웃\n   - 버튼 크기 최소 44x44px\n   - 색상 올바름 (빨강/파랑)\n   - 토스트 알림 표시",
       "verificationCriteria": "모든 테스트 시나리오 통과, 에러 케이스 정상 처리, 모바일/웹 반응형 확인, 캘린더 연동 확인",
       "analysisResult": "Phase 2: 공유 링크 생성 및 참여 기능 구현\\n\\n기존 Phase 1에서 공유 링크(share_link)가 이미 projects 테이블에 저장되고 있으므로, Phase 2는 이를 활용하여 공유 링크를 통한 참여 메커니즘을 구현합니다.\\n\\n핵심 기능:\\n1. 공유 링크로 프로젝트 조회 (getProjectByShareLink)\\n2. 사용자 멤버십 추가 (joinProject) - 최대 2명 제한\\n3. 참여 API 라우트 (/api/projects/[projectId]/join)\\n4. 참여 페이지 (/join/[shareLink])\\n5. UI 컴포넌트 (ShareLinkButton, MemberList)\\n\\n아키텍처 준수:\\n- API 라우트: 기존 POST /api/projects 패턴 동일 (JWT/쿠키 인증)\\n- 쿼리 함수: 기존 getProjectById 패턴 동일 (try-catch, throw)\\n- 컴포넌트: Server/Client 분리 준수\\n- 타입: Project, ProjectMember 재사용\\n- RLS 정책: 기존 설정 재활용\\n\\n제약 조건:\\n- 최대 2명 멤버 (creator + member)\\n- 중복 참여 방지\\n- 공유 링크 10자 (nanoid 기존 생성)\\n- 모바일 우선 반응형\\n- Realtime은 Phase 5에서 추가"
+    },
+    {
+      "id": "phase4-candidates-schema",
+      "name": "후보지 데이터베이스 스키마 및 마이그레이션 생성",
+      "description": "Supabase 마이그레이션 파일을 생성하여 후보지(candidates) 테이블과 투표(candidate_votes) 테이블을 구현합니다. 테이블 구조: candidates (id, project_id, location_name, address, category, created_by, votes_agree, votes_disagree, created_at), candidate_votes (id, candidate_id, user_id, vote_type, created_at). RLS 정책도 함께 설정합니다.",
+      "notes": "기존 projects, project_members 테이블과의 외래키 관계 설정. RLS 정책: 프로젝트 멤버만 후보지 조회/등록/투표 가능",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "supabase/migrations/",
+          "type": "TO_CREATE",
+          "description": "새 마이그레이션 파일"
+        }
+      ],
+      "implementationGuide": "테이블 스키마:\n\ncandidates 테이블:\n- id: UUID (PK)\n- project_id: UUID (FK → projects.id)\n- location_name: TEXT (장소명)\n- address: TEXT (주소)\n- category: TEXT (카테고리)\n- created_by: UUID (FK → auth.users.id)\n- votes_agree: INT (찬성 수)\n- votes_disagree: INT (반대 수)\n- created_at: TIMESTAMP\n- updated_at: TIMESTAMP\n\ncandidate_votes 테이블:\n- id: UUID (PK)\n- candidate_id: UUID (FK → candidates.id)\n- user_id: UUID (FK → auth.users.id)\n- vote_type: TEXT ('agree' | 'disagree')\n- created_at: TIMESTAMP\n- 복합 유니크: (candidate_id, user_id) - 중복 투표 방지\n\nRLS 정책:\n- candidates: 프로젝트 멤버만 SELECT, creator/member는 INSERT\n- candidate_votes: 프로젝트 멤버만 INSERT/UPDATE/DELETE\n- 삭제는 creator만 가능",
+      "verificationCriteria": "마이그레이션 파일이 생성되고, Supabase에서 정상 실행, 테이블/RLS 정책 생성 확인"
+    },
+    {
+      "id": "phase4-types-definition",
+      "name": "후보지 관련 타입 정의 추가",
+      "description": "lib/types/ 디렉토리에 후보지 관련 TypeScript 타입을 정의합니다. Candidate, CandidateVote, CandidateWithVotes 등의 타입을 추가하고, Database 타입에 새 테이블을 반영합니다.",
+      "notes": "Database 타입은 Supabase 타입 생성 도구로 자동 생성 가능. 선택적으로 손으로 추가",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-candidates-schema"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "lib/types/candidate.ts",
+          "type": "TO_CREATE",
+          "description": "새 타입 파일"
+        },
+        {
+          "path": "lib/types/index.ts",
+          "type": "TO_MODIFY",
+          "description": "타입 재내보내기"
+        }
+      ],
+      "implementationGuide": "lib/types/candidate.ts:\n\nexport type Candidate = {\n  id: string;\n  project_id: string;\n  location_name: string;\n  address: string;\n  category?: string;\n  created_by: string;\n  votes_agree: number;\n  votes_disagree: number;\n  created_at: Date;\n  updated_at: Date;\n};\n\nexport type CandidateVote = {\n  id: string;\n  candidate_id: string;\n  user_id: string;\n  vote_type: 'agree' | 'disagree';\n  created_at: Date;\n};\n\nexport type CandidateWithVotes = Candidate & {\n  user_vote?: 'agree' | 'disagree' | null;\n};\n\nlib/types/index.ts에 export * from './candidate' 추가",
+      "verificationCriteria": "타입 파일이 생성되고, TypeScript 컴파일 오류 없음, 기존 코드에 import 가능"
+    },
+    {
+      "id": "phase4-candidate-queries",
+      "name": "후보지 관련 쿼리 함수 추가",
+      "description": "lib/supabase/queries/candidates.ts 파일을 생성하여 후보지 관련 CRUD 함수를 추가합니다. getCandidates (프로젝트의 모든 후보지), createCandidate, deleteCandidate, voteCandidate 함수를 구현합니다.",
+      "notes": "기존 projects.ts의 패턴을 따름. try-catch로 에러 처리, 명확한 에러 메시지 throw",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-types-definition"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "lib/supabase/queries/candidates.ts",
+          "type": "TO_CREATE",
+          "description": "새 쿼리 함수 파일"
+        }
+      ],
+      "implementationGuide": "함수 목록:\n\n1. getCandidates(projectId: string): Promise<CandidateWithVotes[]>\n   - 프로젝트의 모든 후보지 조회\n   - 각 후보지의 현재 사용자 투표 정보 포함\n\n2. createCandidate(candidate: Candidate): Promise<Candidate>\n   - 후보지 등록\n   - location_name, address, category, created_by 필수\n   - votes_agree/disagree는 0으로 초기화\n\n3. deleteCandidate(candidateId: string): Promise<void>\n   - 후보지 삭제 (creator만 가능, API에서 검증)\n   - 연관된 투표 데이터도 함께 삭제\n\n4. voteCandidate(candidateId: string, userId: string, voteType: 'agree' | 'disagree'): Promise<CandidateVote>\n   - 후보지에 투표\n   - 중복 투표 방지 (복합 유니크 제약으로 자동 처리)\n   - votes_agree/disagree 카운트 업데이트",
+      "verificationCriteria": "함수들이 정상 작동, 에러 처리 명확, 타입 안전성 확인"
+    },
+    {
+      "id": "phase4-candidate-api",
+      "name": "후보지 관련 API 엔드포인트 구현",
+      "description": "후보지 관련 API 라우트를 구현합니다. GET /api/projects/:id/candidates (조회), POST /api/projects/:id/candidates (등록), DELETE /api/projects/:id/candidates/:id (삭제), POST /api/projects/:id/candidates/:id/vote (투표).",
+      "notes": "기존 POST /api/projects 패턴 참고. 인증, 권한 검증 포함",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-candidate-queries"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "app/api/projects/[projectId]/candidates/route.ts",
+          "type": "TO_CREATE",
+          "description": "GET/POST 엔드포인트"
+        },
+        {
+          "path": "app/api/projects/[projectId]/candidates/[candidateId]/route.ts",
+          "type": "TO_CREATE",
+          "description": "DELETE 엔드포인트"
+        },
+        {
+          "path": "app/api/projects/[projectId]/candidates/[candidateId]/vote/route.ts",
+          "type": "TO_CREATE",
+          "description": "POST 투표 엔드포인트"
+        }
+      ],
+      "implementationGuide": "엔드포인트:\n\nGET /api/projects/:id/candidates\n- 응답: { candidates: CandidateWithVotes[] }\n\nPOST /api/projects/:id/candidates\n- 요청: { location_name, address, category }\n- 응답: { id, ...candidate }\n- 상태: 201\n\nDELETE /api/projects/:id/candidates/:candidateId\n- 응답: { success: true }\n- 상태: 204 또는 200\n- 권한: creator만 가능\n\nPOST /api/projects/:id/candidates/:candidateId/vote\n- 요청: { vote_type: 'agree' | 'disagree' }\n- 응답: { id, ...vote }\n- 상태: 201\n- 권한: 프로젝트 멤버만",
+      "verificationCriteria": "모든 API 엔드포인트가 정상 작동, 인증/권한 검증 확인, 에러 상태 코드 올바름"
+    },
+    {
+      "id": "phase4-tabs-ui-structure",
+      "name": "탭 시스템 UI 구조 설계 및 구현",
+      "description": "프로젝트 상세 페이지에 탭 시스템을 구현합니다. 데스크톱과 모바일 모두에서 탭 시스템을 사용하되, 데스크톱은 우측 패널 내 탭, 모바일은 하단 고정 탭 바를 사용합니다. 탭: 정보, 멤버, 후보지.",
+      "notes": "shadcn/ui의 Tabs 컴포넌트 활용. 반응형 Tailwind 클래스로 데스크톱/모바일 분기 처리",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-candidate-api"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "app/projects/[projectId]/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "탭 시스템 통합"
+        }
+      ],
+      "implementationGuide": "구조:\n\n데스크톱 (md 이상):\n<div className=\"lg:flex lg:gap-4\">\n  <!-- 좌측 지도 60% -->\n  <!-- 우측 패널 40% (Tabs 포함) -->\n</div>\n\n모바일 (md 미만):\n<div>\n  <!-- 검색 -->\n  <!-- 지도 (h-[400px]) -->\n  <!-- 하단 탭 패널 (fixed, h-[300px]) -->\n</div>\n\nTabs 구조:\n<Tabs defaultValue=\"info\" className=\"...\">\n  <TabsList className=\"grid w-full grid-cols-3\">\n    <TabsTrigger value=\"info\">정보</TabsTrigger>\n    <TabsTrigger value=\"members\">멤버</TabsTrigger>\n    <TabsTrigger value=\"candidates\">후보지</TabsTrigger>\n  </TabsList>\n  \n  <div className=\"overflow-y-auto\">\n    <TabsContent value=\"info\">...</TabsContent>\n    <TabsContent value=\"members\">...</TabsContent>\n    <TabsContent value=\"candidates\">...</TabsContent>\n  </div>\n</Tabs>",
+      "verificationCriteria": "탭 시스템이 정상 작동, 데스크톱/모바일 레이아웃 올바름, 탭 전환 부드러움"
+    },
+    {
+      "id": "phase4-candidate-card-component",
+      "name": "후보지 카드 컴포넌트 구현 (실시간 투표)",
+      "description": "components/projects/CandidateCard.tsx 컴포넌트를 생성합니다. 각 후보지를 카드 형태로 표시하며, 번호 배지, 장소명, 주소, 카테고리를 포함합니다. 핵심 기능: 투표 버튼 클릭 시 즉시 사람 수 업데이트(낙관적 업데이트), 투표 변경 시 자동 조정, 우측에 큰 결과 아이콘(✓/✕/-)을 표시합니다.",
+      "notes": "멤버 카드 패턴 참고. 낙관적 업데이트 구현 (클릭 즉시 UI 변경, API 응답 대기). 투표 변경: 찬성→반대시 찬성 -1, 반대 +1. 투표 취소: 같은 버튼 재클릭 시 투표 -1. 모든 사용자가 삭제 가능.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-tabs-ui-structure"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "components/projects/CandidateCard.tsx",
+          "type": "TO_CREATE",
+          "description": "새 컴포넌트"
+        }
+      ],
+      "implementationGuide": "Props:\ninterface CandidateCardProps {\n  index: number;\n  candidate: CandidateWithVotes;  // votes_agree, votes_disagree, user_vote 포함\n  projectId: string;\n}\n\n상태 관리:\n- votes_agree: number (실시간 업데이트)\n- votes_disagree: number (실시간 업데이트)\n- user_vote: 'agree' | 'disagree' | null\n- isVoting: boolean\n\n레이아웃:\n┌─────────────────────────────────────────┐\n│ [우측 상단]                      [✕ 삭제]  │\n├────┬────────────────────────────────┤\n│ 1  │ 장소명                           │\n│◯  │ 주소, 카테고리, 🔗 지도보기      │\n├────┼────────────────────────────────┤\n│    │ [👍] 2명 │ [👎] 1명 │    ✓   │\n│    │ (즉시+1)  (즉시+1)   (40-48px) │\n└────┴────────────────────────────────┘\n\n투표 로직 (낙관적 업데이트):\n1. 버튼 클릭 → 즉시 UI 업데이트 (votes 변경)\n2. API 호출 (POST /api/projects/:id/candidates/:id/vote)\n3. 성공: 상태 유지\n4. 실패: 이전 상태로 복구 + 토스트 에러\n\n투표 변경 예시 (찬성→반대):\n- votes_agree: 2 → 1 (즉시)\n- votes_disagree: 1 → 2 (즉시)\n- 결과: ✓ → ✕ (즉시)\n\n버튼 상태:\n- 투표 안함: 파란색/빨간색 (hover 진해짐)\n- 찬성 투표함: 파란색 강조 + ✓ | 반대 회색\n- 반대 투표함: 파란색 회색 | 빨간색 강조 + ✓\n- 로딩 중: [⟳] 표시, disabled\n\n결과 표시 (우측):\n- 찬성≥66%: ✓ (초록색, 40-48px, bg-green-100)\n- 찬성<66%: ✕ (검정색, 40-48px, bg-gray-100)\n- 투표 없음: - (회색, 40-48px)\n- 로딩: ⟳ (Loader2 스피너)\n\n삭제:\n- 모든 사용자가 [✕ 삭제] 버튼 클릭 가능\n- DELETE /api/projects/:id/candidates/:id 호출\n- 성공 시 목록에서 제거",
+      "verificationCriteria": "클릭 즉시 숫자 변경, 투표 변경 시 수 자동 조정, 결과 아이콘 실시간 업데이트, 로딩 상태 표시, 에러 시 복구, 모바일 반응형"
+    },
+    {
+      "id": "phase4-candidate-list-component",
+      "name": "후보지 목록 컴포넌트 구현",
+      "description": "components/projects/CandidateList.tsx 컴포넌트를 생성합니다. 후보지 목록을 표시하는 클라이언트 컴포넌트로, 탭 콘텐츠 내에서 렌더링됩니다. CandidateCard를 렌더링하고, 로딩/에러/빈 목록 상태를 처리합니다.",
+      "notes": "'use client' 클라이언트 컴포넌트. GET /api/projects/:id/candidates로 데이터 로드. 실시간 투표는 CandidateCard에서 처리하므로 목록은 상태 관리 최소화.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-candidate-card-component"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "components/projects/CandidateList.tsx",
+          "type": "TO_CREATE",
+          "description": "새 컴포넌트"
+        }
+      ],
+      "implementationGuide": "Props:\ninterface CandidateListProps {\n  projectId: string;\n}\n\n구현:\n1. useEffect에서 GET /api/projects/:id/candidates 호출 (초기 로드)\n2. useState로 candidates, isLoading, error 관리\n3. 각 후보지마다 CandidateCard 컴포넌트 렌더링\n4. CandidateCard 내부에서 투표/삭제 처리 (각 카드가 독립적)\n5. 빈 목록: '아직 후보지가 없습니다.' 메시지 (text-gray-500, text-center)\n6. 로딩: Loader2 스피너 + '후보지를 불러오는 중...' (text-gray-600)\n7. 에러: bg-red-50, border-red-200, text-red-600 배경으로 메시지 표시\n\n상태 관리:\n- candidates: CandidateWithVotes[] (초기 로드 후 CandidateCard가 개별 관리)\n- isLoading: boolean (초기 로드 중)\n- error: string | null (API 에러)\n\nUI:\n- space-y-3: 카드 사이 간격\n- 각 카드에 key={candidate.id} 설정\n- 모바일: space-y-2, 데스크톱: space-y-3",
+      "verificationCriteria": "목록이 정상 로드, 카드 렌더링 정상, 로딩/에러 상태 표시, 빈 목록 메시지 표시"
+    },
+    {
+      "id": "phase4-project-detail-integration",
+      "name": "프로젝트 상세 페이지 탭 시스템 통합",
+      "description": "app/projects/[projectId]/page.tsx 파일을 수정하여 탭 시스템을 적용합니다. 기존의 정보, 멤버, 지도를 탭으로 재구성하고, 새로운 후보지 탭을 추가합니다. 데스크톱과 모바일 레이아웃을 모두 반응형으로 처리합니다.",
+      "notes": "기존 코드 구조 유지. ShareLinkButton, MemberList는 '정보' 탭 내에 포함. 지도는 '정보' 탭 위에 항상 표시 (모바일 하단 탭 패널 외)",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-candidate-list-component"
+        },
+        {
+          "taskId": "phase4-tabs-ui-structure"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "app/projects/[projectId]/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "탭 시스템 통합"
+        }
+      ],
+      "implementationGuide": "레이아웃:\n\n전체 구조:\n<div>\n  <!-- 헤더 (프로젝트 제목, 뒤로가기) -->\n  \n  <!-- 메인 콘텐츠 -->\n  <div className=\"lg:flex lg:gap-4\">\n    <!-- 좌측 (모든 화면) -->\n    <div className=\"lg:w-3/5\">\n      <!-- LocationSearch -->\n      <!-- NaverMap -->\n    </div>\n    \n    <!-- 우측 패널 -->\n    <div className=\"w-full lg:w-2/5\">\n      <!-- 모바일: 하단 탭 -->\n      <!-- 데스크톱: 일반 탭 -->\n      <Tabs defaultValue=\"info\">\n        <TabsList>\n          <TabsTrigger value=\"info\">정보</TabsTrigger>\n          <TabsTrigger value=\"members\">멤버</TabsTrigger>\n          <TabsTrigger value=\"candidates\">후보지</TabsTrigger>\n        </TabsList>\n        \n        <TabsContent value=\"info\">\n          <ShareLinkButton />\n          <!-- 프로젝트 정보 -->\n        </TabsContent>\n        \n        <TabsContent value=\"members\">\n          <MemberList />\n        </TabsContent>\n        \n        <TabsContent value=\"candidates\">\n          <CandidateList />\n        </TabsContent>\n      </Tabs>\n    </div>\n  </div>\n</div>\n\nTailwind 클래스:\n- 모바일 탭 패널: fixed bottom-0 h-[300px] md:static md:h-auto\n- 스크롤 영역: overflow-y-auto md:space-y-4\n- 데스크톱 레이아웃: lg:flex lg:gap-4",
+      "verificationCriteria": "페이지가 올바르게 렌더링, 탭 전환 작동, 모바일/데스크톱 레이아웃 올바름, 지도와 탭 상호작용 정상"
+    },
+    {
+      "id": "phase4-responsive-styling",
+      "name": "모바일 반응형 Tailwind 스타일링 완성",
+      "description": "데스크톱과 모바일 레이아웃을 완벽하게 구현하기 위해 모든 반응형 Tailwind 클래스를 적용합니다. 모바일에서 하단 탭 패널의 높이, 스크롤, 지도 높이 등을 최적화하고, 안드로이드 네비게이션 바 고려를 포함합니다.",
+      "notes": "모바일: max-h, md: 브레이크포인트 사용. 터치 타겟 최소 44x44px 확인. 안드로이드 네비게이션 바: safe-area-inset-bottom 고려",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-project-detail-integration"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "app/projects/[projectId]/page.tsx",
+          "type": "TO_MODIFY",
+          "description": "Tailwind 클래스 조정"
+        },
+        {
+          "path": "components/projects/CandidateList.tsx",
+          "type": "TO_MODIFY",
+          "description": "반응형 스타일"
+        }
+      ],
+      "implementationGuide": "체크리스트:\n\n1. 모바일 (< md):\n   - 검색 입력: w-full p-4\n   - 지도: h-[400px] w-full\n   - 탭 패널: fixed bottom-0 left-0 right-0 h-[300px] (또는 safe-area-inset-bottom)\n   - 탭 헤더: sticky top-0 bg-white\n   - 스크롤 영역: h-[calc(100%-45px)] overflow-y-auto\n\n2. 데스크톱 (md 이상):\n   - 레이아웃: lg:flex lg:gap-4\n   - 좌측: lg:w-3/5\n   - 우측: lg:w-2/5 sticky top-4 max-h-[calc(100vh-80px)]\n   - 탭 헤더: static (fixed 아님)\n   - 스크롤: md:space-y-4\n\n3. 공통:\n   - 버튼 최소 높이: min-h-[44px]\n   - 패딩: p-4 (모바일), md:p-6 (데스크톱)\n   - 간격: gap-2 md:gap-4",
+      "verificationCriteria": "모바일에서 하단 탭 패널이 고정, 지도 스크롤 가능, 데스크톱에서 우측 패널이 sticky, 모든 터치 타겟 44x44px 이상"
+    },
+    {
+      "id": "phase4-final-locations-schema",
+      "name": "최종 장소 데이터베이스 스키마 생성",
+      "description": "Supabase 마이그레이션 파일을 생성하여 final_locations 테이블을 구현합니다. 테이블 구조: final_locations (id, project_id, candidate_id, location_name, address, category, lat, lng, votes_agree, votes_disagree, agreement_ratio, created_at). 투표 결과가 찬성 66% 이상인 후보지를 최종 장소로 별도 저장합니다.",
+      "notes": "candidates 테이블과 projects 테이블과의 외래키 관계 설정. RLS 정책: 프로젝트 멤버는 조회 가능, 자동 저장이므로 API에서 관리",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-candidates-schema"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "supabase/migrations/",
+          "type": "TO_CREATE",
+          "description": "final_locations 테이블 마이그레이션"
+        }
+      ],
+      "implementationGuide": "마이그레이션 파일:\n\nCREATE TABLE final_locations (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,\n  candidate_id UUID NOT NULL REFERENCES candidates(id) ON DELETE CASCADE,\n  location_name TEXT NOT NULL,\n  address TEXT NOT NULL,\n  category TEXT,\n  lat NUMERIC,\n  lng NUMERIC,\n  votes_agree INT NOT NULL,\n  votes_disagree INT NOT NULL,\n  agreement_ratio NUMERIC,\n  created_at TIMESTAMP DEFAULT NOW(),\n  updated_at TIMESTAMP DEFAULT NOW()\n);\n\n복합 유니크: (project_id, candidate_id) - 같은 후보지 중복 저장 방지\nRLS 정책: 프로젝트 멤버만 SELECT, API는 INSERT/DELETE (자동 저장)",
+      "verificationCriteria": "테이블 생성 성공, 외래키 관계 정상, 복합 유니크 제약 작동"
+    },
+    {
+      "id": "phase4-marker-color-logic",
+      "name": "지도 마커 색상 변경 로직 구현",
+      "description": "components/map/NaverMap.tsx를 수정하여 후보지의 투표 결과에 따라 마커 색상이 실시간으로 변경되도록 구현합니다. 마커 색상: 투표 없음(회색), 찬성<66%(빨강), 찬성≥66%(초록).",
+      "notes": "CandidateCard에서 투표 후 → 부모 컴포넌트에서 후보지 상태 업데이트 → NaverMap re-render → 마커 색상 자동 변경",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-candidate-list-component"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "components/map/NaverMap.tsx",
+          "type": "TO_MODIFY",
+          "description": "마커 색상 로직 추가"
+        }
+      ],
+      "implementationGuide": "구현:\n\n1. getMarkerColor 함수 추가:\n   const getMarkerColor = (candidate: CandidateWithVotes) => {\n     const agree = candidate.votes_agree;\n     const disagree = candidate.votes_disagree;\n     const total = agree + disagree;\n     \n     if (total === 0) return '#9CA3AF'; // 회색\n     const ratio = (agree / total) * 100;\n     return ratio >= 66 ? '#10B981' : '#EF4444';\n   };\n\n2. 마커 렌더링 시 색상 적용:\n   candidates.map((candidate) => {\n     const color = getMarkerColor(candidate);\n     // marker 생성 시 color 적용\n   });\n\n3. 마커 업데이트:\n   - 후보지 데이터 변경 → NaverMap 재렌더링\n   - 마커 색상 자동 변경\n\n색상 정의:\n- 회색: #9CA3AF (투표 없음)\n- 빨강: #EF4444 (찬성 < 66%)\n- 초록: #10B981 (찬성 >= 66%)",
+      "verificationCriteria": "마커 색상이 투표 결과에 따라 실시간 변경, 찬성≥66%→초록, 찬성<66%→빨강, 투표없음→회색"
+    },
+    {
+      "id": "phase4-final-locations-api",
+      "name": "최종 장소 저장 API 구현",
+      "description": "최종 장소를 DB에 저장/삭제하는 API 엔드포인트를 구현합니다. POST /api/projects/:id/final-locations (저장), DELETE /api/projects/:id/final-locations/:candidateId (삭제). 투표 결과가 66% 이상인 경우만 저장 가능합니다.",
+      "notes": "자동 저장 방식: 투표 변경 시 66% 확인 후 자동 저장/삭제. 중복 저장 방지. 투표 수 변경 시 동기화",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-final-locations-schema"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "app/api/projects/[projectId]/final-locations/route.ts",
+          "type": "TO_CREATE",
+          "description": "POST/DELETE 엔드포인트"
+        }
+      ],
+      "implementationGuide": "엔드포인트:\n\nPOST /api/projects/:projectId/final-locations\n요청: { \"candidateId\": \"uuid\" }\n응답 (201): { \"id\": \"...\", \"location_name\": \"...\", \"agreement_ratio\": 66.7 }\n응답 (400): { \"error\": \"찬성이 66% 미만입니다.\" }\n\nDELETE /api/projects/:projectId/final-locations/:candidateId\n응답 (200): { \"success\": true }\n\n자동 저장 로직:\n1. CandidateCard에서 투표 후 서버 응답\n2. 응답에서 votes_agree, votes_disagree 확인\n3. agreementRatio >= 66% 확인\n4. 이미 final_locations에 저장됨 → 스킵\n5. 미저장 → POST 호출로 저장\n6. agreementRatio < 66% 이고 이미 저장됨 → DELETE 호출\n\n중복 저장 방지:\nUNIQUE (project_id, candidate_id) 제약으로 DB 레벨에서 방지",
+      "verificationCriteria": "API 호출 성공, 찬성≥66%일 때만 저장, 투표 변경 시 동기화, 중복 저장 방지"
+    },
+    {
+      "id": "phase4-candidate-card-final-location",
+      "name": "CandidateCard UI 업데이트 (최종 선정 표시)",
+      "description": "CandidateCard 컴포넌트를 수정하여 최종 선정된 후보지(초록 마커)에 ⭐ 아이콘과 \"최종 선정됨\" 텍스트를 표시합니다. 카테고리 옆에 표시하고, 배경색을 bg-green-50으로 강조합니다.",
+      "notes": "최종 선정 여부는 agreementRatio >= 66% 또는 final_locations 테이블 존재 여부로 판단. 실시간 업데이트됨.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-final-locations-api"
+        },
+        {
+          "taskId": "phase4-candidate-card-component"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "components/projects/CandidateCard.tsx",
+          "type": "TO_MODIFY",
+          "description": "최종 선정 표시 추가"
+        }
+      ],
+      "implementationGuide": "수정:\n\n1. 최종 선정 여부 판단:\n   const isFinalSelected = candidate.votes_agree + candidate.votes_disagree > 0\n     && (candidate.votes_agree / (candidate.votes_agree + candidate.votes_disagree)) >= 0.66;\n\n2. 카테고리 섹션 수정:\n   <div className=\"flex items-center gap-2\">\n     <span className=\"text-xs bg-gray-100 px-2 py-1 rounded\">음식점</span>\n     {isFinalSelected && (\n       <span className=\"text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-semibold\">\n         ⭐ 최종 선정됨\n       </span>\n     )}\n     <a href=\"#\" className=\"text-xs text-blue-500 hover:underline\">\n       🔗 네이버 지도 보기\n     </a>\n   </div>\n\n3. 카드 배경색 (조건부):\n   className={`... ${isFinalSelected ? 'bg-green-50 border-green-200' : ''}`}\n\n4. 헤더 섹션:\n   isFinalSelected → 배경색 강조\n   (선택사항) 테두리: border border-green-200",
+      "verificationCriteria": "최종 선정 여부 정확히 판단, ⭐ 아이콘 표시, 배경색 강조, 실시간 업데이트"
+    },
+    {
+      "id": "phase4-full-integration-test",
+      "name": "Phase 4 전체 기능 테스트",
+      "description": "Phase 4의 모든 기능을 종합적으로 테스트합니다. 후보지 등록부터 투표까지 전체 플로우를 검증하고, 데스크톱/모바일 레이아웃, 탭 전환 등을 확인합니다.",
+      "notes": "테스트는 로컬 개발 환경에서 수행. 두 개의 사용자 계정 필요 (creator, member). 모바일 에뮬레이터 또는 실제 기기에서 테스트",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "phase4-responsive-styling"
+        }
+      ],
+      "createdAt": "2026-03-05T00:00:00.000Z",
+      "updatedAt": "2026-03-05T00:00:00.000Z",
+      "relatedFiles": [
+        {
+          "path": "docs/ROADMAP.md",
+          "type": "REFERENCE",
+          "description": "Phase 4 체크리스트"
+        }
+      ],
+      "implementationGuide": "테스트 시나리오:\n\n1. 후보지 등록 플로우:\n   - Creator 계정으로 프로젝트 페이지 접속\n   - 지도에서 장소 검색 후 '후보지 등록' 버튼 클릭\n   - AddLocationModal에서 카테고리, 메모 입력 후 등록\n   - 후보지 탭에서 등록된 후보지 확인\n   - 번호 배지(1,2,3...), 장소명, 주소 올바르게 표시되는지 확인\n\n2. 실시간 투표 플로우 (가장 중요):\n   A. 첫 투표:\n      - Member 계정으로 프로젝트 페이지 접속\n      - 후보지 탭 클릭\n      - \"[👍] 1명\"에서 버튼 클릭\n      - \"[👍] 2명\"으로 즉시 변경되는지 확인 (낙관적 업데이트)\n      - 결과 아이콘이 - → ✓ 또는 ✕로 변경되는지 확인\n      - 로딩 스피너 ⟳ 표시되는지 확인 (0.5초 정도)\n   \n   B. 투표 변경:\n      - \"[👎] 반대하기\" 버튼 클릭\n      - \"[👍] 1명\"으로 -1, \"[👎] 2명\"으로 +1 즉시 변경 확인\n      - 결과 아이콘이 ✓ → ✕로 변경되는지 확인\n      - 반대 버튼이 빨간색 강조, 찬성 버튼이 회색으로 변경\n   \n   C. 투표 취소:\n      - \"[👍] 찬성하기\" 다시 클릭 (취소)\n      - \"[👍] 0명\", \"[👎] 1명\"으로 -1 변경 확인\n      - 결과 아이콘이 ✓ → -로 변경 확인\n      - 모든 버튼이 회색으로 변경\n   \n   D. 다른 사용자의 변경 반영:\n      - Creator 계정에서 새로고침 시 투표 수 반영 확인\n\n3. 삭제 플로우 (모든 사용자 가능):\n   - 후보지의 우측 상단 \"[✕ 삭제]\" 버튼 클릭\n   - 확인 다이얼로그 표시되는지 확인 (또는 toast 알림)\n   - 삭제 중: ⟳ 스피너 표시\n   - 삭제 후 목록에서 즉시 제거되는지 확인\n\n4. 데스크톱 레이아웃 (1200px):\n   - 지도(60%)와 우측 패널(40%) 나란히 표시\n   - \"[👍] 2명 │ [👎] 1명 │ ✓\" 한 줄에 표시\n   - 결과 아이콘이 우측에 크게 표시 (40-48px)\n   - 우측 패널이 sticky (스크롤 시 고정)\n   - 탭 헤더가 sticky\n   - 탭 전환이 부드러움\n\n5. 모바일 레이아웃 (375px):\n   - 지도(400px)가 위에 표시\n   - 하단에 탭 패널 고정 (h-[300px])\n   - 후보지 카드가 수직 스택:\n     [👍] 2명\n     [👎] 1명\n        ✓    (중앙, 크게)\n   - 버튼도 수직 스택 (풀 너비)\n   - 터치 타겟 충분 (최소 44x44px)\n   - 스크롤이 자연스러움\n\n6. 에러 처리:\n   - 네트워크 에러 시뮬레이션 (DevTools)\n   - 투표 실패: 토스트 에러 \"투표에 실패했습니다\"\n   - UI가 이전 상태로 복구되는지 확인\n   - 삭제 실패: 토스트 에러 표시\n\n7. 색상 & 상태:\n   - 찬성 버튼: 파란색 (선택 시 진한 파란색)\n   - 반대 버튼: 빨간색 (선택 시 진한 빨간색)\n   - 결과 ✓: 초록색 (bg-green-100, text-green-600)\n   - 결과 ✕: 검정색 (bg-gray-100, text-gray-600)\n   - 결과 -: 회색 (text-gray-400)\n   - 선택된 버튼: 체크 아이콘 또는 강조 표시\n\n8. 통합 기능:\n   - 캘린더에서 프로젝트 클릭 → 프로젝트 페이지 로드\n   - 다른 탭(정보, 멤버) 정상 작동\n   - 공유 링크 복사 기능\n   - 멤버 목록 표시",
+      "verificationCriteria": "실시간 투표 즉시 반영, 투표 변경 시 수 자동 조정, 결과 아이콘 실시간 업데이트, 로딩 상태 표시, 에러 시 복구, 모바일/데스크톱 레이아웃 올바름, 모든 기능 정상 작동"
     }
   ]
 }
