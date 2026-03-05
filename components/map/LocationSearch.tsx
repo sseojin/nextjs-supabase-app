@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -16,11 +16,19 @@ import type { LocationSearchProps, LocationSearchResult } from "@/lib/types/loca
 export default function LocationSearch({
   onSearchResults,
   onSelectLocation,
+  onCloseResults,
+  showResults = true,
+  userRole = "member",
   className,
-}: LocationSearchProps) {
+}: LocationSearchProps & {
+  showResults?: boolean;
+  onCloseResults?: () => void;
+  userRole?: "creator" | "member";
+}) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<LocationSearchResult[]>([]);
+  const [searchAttempted, setSearchAttempted] = useState(false);
 
   /**
    * 검색 실행 함수
@@ -43,6 +51,7 @@ export default function LocationSearch({
 
     try {
       setIsSearching(true);
+      setSearchAttempted(true);
 
       // 2단계: API 호출
       const response = await fetch(
@@ -65,7 +74,7 @@ export default function LocationSearch({
       if (searchResults.length === 0) {
         toast.info("검색 결과가 없습니다");
       } else {
-        toast.success(`${searchResults.length}개의 장소를 찾았습니다`);
+        toast.success(`${searchResults.length}개의 장소를 �았습니다`);
       }
     } catch (error) {
       // 4단계: 에러 처리
@@ -84,6 +93,14 @@ export default function LocationSearch({
     if (e.key === "Enter" && !isSearching) {
       handleSearch();
     }
+  };
+
+  /**
+   * 검색 결과 항목 선택 시
+   * 부모 콜백 호출 (결과 목록은 유지)
+   */
+  const handleSelectResult = (result: LocationSearchResult) => {
+    onSelectLocation?.(result);
   };
 
   return (
@@ -107,33 +124,70 @@ export default function LocationSearch({
         </Button>
       </div>
 
-      {/* 검색 결과 목록 */}
-      {results.length > 0 && (
-        <div className="bg-slate-50 rounded-lg p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700">검색 결과 ({results.length}개)</h3>
-          <div className="space-y-2">
-            {results.map((result, index) => (
-              <button
-                key={`${result.title}-${result.x}-${result.y}`}
-                onClick={() => onSelectLocation?.(result)}
-                className="w-full flex gap-3 items-start p-3 rounded-md hover:bg-blue-50 active:bg-blue-100 transition-colors text-left"
-              >
-                {/* 번호 배지 */}
-                <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 bg-blue-600 text-white rounded-full text-xs font-semibold">
-                  {index + 1}
-                </div>
+      {/* 검색 결과 목록 또는 비어있음 메시지 */}
+      {searchAttempted && showResults && (
+        <>
+          {results.length > 0 ? (
+            <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-700">
+                  검색 결과 ({results.length}개)
+                </h3>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onCloseResults?.();
+                  }}
+                  className="p-1 hover:bg-slate-200 rounded transition-colors"
+                  aria-label="검색 결과 닫기"
+                >
+                  <X className="h-4 w-4 text-slate-500" />
+                </button>
+              </div>
+              <div className="space-y-2">
+                {results.map((result, index) => {
+                  // 사용자 역할에 따라 배지 색상 결정
+                  const badgeColor = userRole === "creator" ? "bg-red-600" : "bg-blue-600";
+                  const hoverBgColor =
+                    userRole === "creator" ? "hover:bg-red-50" : "hover:bg-blue-50";
+                  const activeBgColor =
+                    userRole === "creator" ? "active:bg-red-100" : "active:bg-blue-100";
 
-                {/* 장소 정보 */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">{result.title}</p>
-                  <p className="text-xs text-slate-600 truncate">
-                    {result.roadAddress || result.address}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+                  return (
+                    <button
+                      key={`${result.title}-${result.x}-${result.y}`}
+                      onClick={() => handleSelectResult(result)}
+                      className={`w-full flex gap-3 items-start p-3 rounded-md ${hoverBgColor} ${activeBgColor} transition-colors text-left`}
+                    >
+                      {/* 번호 배지 */}
+                      <div
+                        className={`flex-shrink-0 flex items-center justify-center w-6 h-6 ${badgeColor} text-white rounded-full text-xs font-semibold`}
+                      >
+                        {index + 1}
+                      </div>
+
+                      {/* 장소 정보 */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">
+                          {result.title}
+                        </p>
+                        <p className="text-xs text-slate-600 truncate">
+                          {result.roadAddress || result.address}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-50 rounded-lg p-6 flex flex-col items-center justify-center text-center">
+              <p className="text-sm font-semibold text-slate-700 mb-1">검색 결과가 없습니다</p>
+              <p className="text-xs text-slate-600">다른 검색어로 다시 시도해주세요</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

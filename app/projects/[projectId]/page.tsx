@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -50,9 +50,14 @@ export default function ProjectDetailPage() {
 
   // Phase 3: 네이버 지도 관련 상태
   const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<LocationSearchResult | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [locationToAdd, setLocationToAdd] = useState<LocationSearchResult | null>(null);
+
+  // 검색 결과 영역 참조 (배경 클릭 감지용)
+  const searchAreaRef = useRef<HTMLDivElement>(null);
+  const showSearchResultsRef = useRef(showSearchResults);
 
   /**
    * 뒤로가기 핸들러
@@ -119,46 +124,97 @@ export default function ProjectDetailPage() {
   }, [projectId]);
 
   /**
-   * LocationSearch에서 검색 결과를 받아 처리
-   * 첫 번째 결과를 자동으로 선택
+   * showSearchResults 업데이트 시 ref도 함께 업데이트
    */
-  const handleSearchResults = (results: LocationSearchResult[]) => {
+  useEffect(() => {
+    showSearchResultsRef.current = showSearchResults;
+  }, [showSearchResults]);
+
+  /**
+   * 검색 결과 배경 클릭 감지
+   * 검색 영역(searchAreaRef) 밖을 클릭하면 검색 결과 목록만 닫기 (마커는 유지)
+   * 단, 지도는 제외
+   */
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // 검색 결과가 표시되지 않으면 리스너 무시
+      if (!showSearchResultsRef.current) {
+        return;
+      }
+
+      const target = event.target as Node;
+
+      // 검색 영역 내부 클릭이면 무시
+      if (searchAreaRef.current?.contains(target)) {
+        return;
+      }
+
+      // 지도 영역(mapAreaRef)을 클릭했으면 무시
+      if (mapAreaRef.current?.contains(target)) {
+        return;
+      }
+
+      // 그 외의 곳을 클릭했으면 검색 결과 목록만 닫기
+      setShowSearchResults(false);
+    };
+
+    // document에 클릭 이벤트 리스너 추가 (버블링 단계)
+    document.addEventListener("click", handleClickOutside, false);
+
+    return () => {
+      document.removeEventListener("click", handleClickOutside, false);
+    };
+  }, []);
+
+  /**
+   * LocationSearch에서 검색 결과를 받아 처리
+   * 첫 번째 결과를 자동으로 선택하고 결과 목록 표시
+   */
+  const handleSearchResults = useCallback((results: LocationSearchResult[]) => {
     setSearchResults(results);
+    setShowSearchResults(true);
     if (results.length > 0) {
       setSelectedLocation(results[0]);
     }
-  };
+  }, []);
 
   /**
    * NaverMap에서 마커 클릭 시 호출
    * 선택된 장소 업데이트
    */
-  const handleLocationSelect = (location: LocationSearchResult | null) => {
+  const handleLocationSelect = useCallback((location: LocationSearchResult | null) => {
     setSelectedLocation(location);
-  };
+  }, []);
 
   /**
    * 검색 결과 항목을 클릭했을 때 호출
    * 선택된 위치를 업데이트하고 지도 영역으로 스크롤
    */
-  const handleSelectLocationFromSearch = (location: LocationSearchResult) => {
+  const handleSelectLocationFromSearch = useCallback((location: LocationSearchResult) => {
     setSelectedLocation(location);
     // 지도 영역으로 부드럽게 스크롤 (검색창이 가려지지 않도록)
     setTimeout(() => {
       mapAreaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
-  };
+  }, []);
+
+  /**
+   * 검색 결과 닫기 (목록만 닫고 지도는 그대로)
+   */
+  const handleCloseSearchResults = useCallback(() => {
+    setShowSearchResults(false);
+  }, []);
 
   /**
    * LocationInfoWindow의 "후보지 등록" 버튼 클릭 시
    * 모달을 열고 등록할 장소 설정
    */
-  const handleAddLocationClick = () => {
+  const handleAddLocationClick = useCallback(() => {
     if (selectedLocation) {
       setLocationToAdd(selectedLocation);
       setIsAddModalOpen(true);
     }
-  };
+  }, [selectedLocation]);
 
   /**
    * AddLocationModal 제출 핸들러
@@ -303,11 +359,14 @@ export default function ProjectDetailPage() {
         <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
           {/* Phase 3: 네이버 지도 섹션 */}
           <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-            <div className="p-6 space-y-4 border-b border-slate-200">
+            <div ref={searchAreaRef} className="p-6 space-y-4 border-b border-slate-200">
               <h2 className="text-lg font-semibold text-slate-900">장소 검색 및 후보지 등록</h2>
               <LocationSearch
                 onSearchResults={handleSearchResults}
                 onSelectLocation={handleSelectLocationFromSearch}
+                onCloseResults={handleCloseSearchResults}
+                showResults={showSearchResults}
+                userRole={project.role}
               />
             </div>
 
@@ -321,6 +380,7 @@ export default function ProjectDetailPage() {
                     selectedLocation={selectedLocation}
                     onLocationSelect={handleLocationSelect}
                     onAddLocation={handleAddLocationClick}
+                    userRole={project.role}
                     className="w-full h-full"
                   />
                 </div>

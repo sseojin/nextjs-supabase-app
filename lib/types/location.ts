@@ -77,6 +77,7 @@ export interface NaverMapProps {
   selectedLocation: LocationSearchResult | null;
   onLocationSelect: (location: LocationSearchResult | null) => void;
   onAddLocation?: () => void;
+  userRole?: "creator" | "member";
   className?: string;
 }
 

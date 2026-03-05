@@ -10,12 +10,14 @@ import type { NaverMapProps } from "@/lib/types/location";
  * 네이버 지도 컴포넌트
  * Naver Maps API를 사용하여 지도를 렌더링하고 마커를 관리합니다.
  * 검색 결과를 마커로 표시하고, 선택된 장소를 InfoWindow로 표시합니다.
+ * 사용자의 역할(생성자/참여자)에 따라 마커 색상을 다르게 표시합니다.
  */
 export default function NaverMap({
   searchResults,
   selectedLocation,
   onLocationSelect,
   onAddLocation,
+  userRole = "member",
   className,
 }: NaverMapProps) {
   const mapRef = useRef<naver.maps.Map | null>(null);
@@ -29,33 +31,47 @@ export default function NaverMap({
    * Naver Maps API를 사용하여 지도 객체 생성
    * 기본 중심: 서울 시청 (37.5665, 126.9780)
    * 기본 줌 레벨: 13
+   * 네이버 지도 API가 로드될 때까지 대기
    */
   useEffect(() => {
-    // Naver Maps API 로드 확인
-    if (typeof window === "undefined" || !window.naver || !window.naver.maps) {
-      console.error("Naver Maps API가 로드되지 않았습니다");
-      return;
-    }
-
     if (!mapContainerRef.current) {
       console.error("지도 컨테이너를 찾을 수 없습니다");
       return;
     }
 
-    // 지도 초기화
-    try {
-      const map = new window.naver.maps.Map(mapContainerRef.current, {
-        center: new window.naver.maps.LatLng(37.5665, 126.978), // 서울 시청
-        zoom: 13,
-        minZoom: 6,
-        maxZoom: 20,
-      });
+    // Naver Maps API 로드 대기 함수
+    const initializeMap = () => {
+      if (typeof window === "undefined" || !window.naver || !window.naver.maps) {
+        console.warn("[NaverMap] Naver Maps API 로드 대기 중...");
+        // 100ms 후 재시도
+        setTimeout(initializeMap, 100);
+        return;
+      }
 
-      mapRef.current = map;
-      console.warn("[NaverMap] 지도 초기화 완료");
-    } catch (error) {
-      console.error("[NaverMap] 지도 초기화 실패:", error);
-    }
+      // 지도 초기화
+      try {
+        const map = new window.naver.maps.Map(mapContainerRef.current!, {
+          center: new window.naver.maps.LatLng(37.5665, 126.978), // 서울 시청
+          zoom: 13,
+          minZoom: 6,
+          maxZoom: 20,
+        });
+
+        mapRef.current = map;
+
+        // 지도 컨테이너의 클릭 이벤트 전파 방지
+        mapContainerRef.current?.addEventListener("click", (e: Event) => {
+          e.stopPropagation();
+        });
+
+        console.warn("[NaverMap] 지도 초기화 완료");
+      } catch (error) {
+        console.error("[NaverMap] 지도 초기화 실패:", error);
+      }
+    };
+
+    // API 로드 상태 확인 및 초기화
+    initializeMap();
   }, []);
 
   /**
@@ -89,6 +105,10 @@ export default function NaverMap({
         const longitude = parseFloat(result.x) / 10000000;
         const position = new window.naver.maps.LatLng(latitude, longitude);
 
+        // 사용자 역할에 따라 마커 색상 결정
+        // 생성자 = 빨강(red-600), 멤버 = 파랑(blue-600)
+        const markerColor = userRole === "creator" ? "bg-red-600" : "bg-blue-600";
+
         // 마커 생성
         const marker = new window.naver.maps.Marker({
           position,
@@ -96,7 +116,7 @@ export default function NaverMap({
           title: result.title,
           icon: {
             content: `
-              <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-xs font-bold border-2 border-white shadow-lg">
+              <div class="flex items-center justify-center w-8 h-8 ${markerColor} text-white rounded-full text-xs font-bold border-2 border-white shadow-lg">
                 ${index + 1}
               </div>
             `,
@@ -118,11 +138,11 @@ export default function NaverMap({
       mapRef.current.panToBounds(bounds);
 
       markersRef.current = markers;
-      console.warn(`[NaverMap] ${markers.length}개 마커 렌더링 완료`);
+      console.warn(`[NaverMap] ${markers.length}개 마커 렌더링 완료 (역할: ${userRole})`);
     } catch (error) {
       console.error("[NaverMap] 마커 렌더링 실패:", error);
     }
-  }, [searchResults, onLocationSelect]);
+  }, [searchResults, onLocationSelect, userRole]);
 
   /**
    * 3단계: InfoWindow 표시/숨김 및 지도 카메라 이동
