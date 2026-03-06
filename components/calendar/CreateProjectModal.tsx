@@ -120,7 +120,7 @@ export default function CreateProjectModal({
         }
       }
 
-      const createdProject = await response.json();
+      await response.json();
 
       // 성공 알림
       toast.success("프로젝트가 생성되었습니다!");
@@ -187,7 +187,7 @@ export default function CreateProjectModal({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="w-full max-w-sm p-6">
         <DialogHeader className="mb-6">
-          <DialogTitle className="text-xl">프로젝트 생성</DialogTitle>
+          <DialogTitle className="text-xl">새 데이트 플랜</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -202,12 +202,12 @@ export default function CreateProjectModal({
           {/* 제목 입력 필드 */}
           <div className="flex flex-col gap-2">
             <Label htmlFor="project-title" className="text-sm font-medium text-slate-700">
-              프로젝트 제목
+              테마
             </Label>
             <Input
               id="project-title"
               type="text"
-              placeholder="프로젝트 제목을 입력하세요"
+              placeholder="데이트 테마를 정해보세요. (예: 성수 옷 쇼핑, 서울 야경 투어)"
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
@@ -260,11 +260,7 @@ export default function CreateProjectModal({
                 </>
               )}
             </Button>
-            {shareLink && (
-              <p className="text-xs text-slate-600 text-center">
-                링크: {shareLink}
-              </p>
-            )}
+            {shareLink && <p className="text-xs text-slate-600 text-center">링크: {shareLink}</p>}
           </div>
 
           {/* 버튼 그룹 */}
@@ -277,18 +273,14 @@ export default function CreateProjectModal({
             >
               취소
             </Button>
-            <Button
-              className="flex-1 h-11"
-              onClick={handleCreate}
-              disabled={loading}
-            >
+            <Button className="flex-1 h-11" onClick={handleCreate} disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   생성 중...
                 </>
               ) : (
-                "생성"
+                "만들기"
               )}
             </Button>
           </div>

@@ -1,4 +1,4 @@
-import { deleteCandidate } from "@/lib/supabase/candidates";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * JWT 토큰에서 사용자 ID 추출
@@ -31,17 +31,21 @@ function getUserIdFromRequest(request: Request): string | null {
 }
 
 /**
- * DELETE /api/projects/[projectId]/candidates/[candidateId]
- * 후보지를 삭제합니다.
- * 후보지를 생성한 사용자 또는 모든 프로젝트 멤버가 삭제 가능합니다.
+ * PATCH /api/projects/[projectId]/candidates/[candidateId]/memo
+ * 후보지의 메모를 수정합니다.
+ *
+ * 요청 본문:
+ * {
+ *   "memo": "수정할 메모 내용" (최대 200자)
+ * }
  *
  * 응답:
- * - 200: { success: true }
+ * - 200: { memo: string } (수정된 메모)
+ * - 400: 유효성 검사 실패
  * - 401: 미인증
- * - 404: 후보지 없음
  * - 500: 서버 에러
  */
-export async function DELETE(
+export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ projectId: string; candidateId: string }> },
 ) {
@@ -57,24 +61,51 @@ export async function DELETE(
       });
     }
 
-    // 후보지 삭제 (RLS 정책에 의해 권한이 자동 확인됨)
-    await deleteCandidate(candidateId);
+    // 요청 본문 파싱
+    const body = await request.json();
 
-    return new Response(JSON.stringify({ success: true }), {
+    // 유효성 검사
+    if (body.memo === undefined) {
+      return new Response(
+        JSON.stringify({
+          error: "메모 내용이 누락되었습니다.",
+        }),
+        { status: 400 },
+      );
+    }
+
+    // 메모 길이 검사 (최대 200자)
+    if (body.memo && body.memo.length > 200) {
+      return new Response(
+        JSON.stringify({
+          error: "메모는 최대 200자까지 입력할 수 있습니다.",
+        }),
+        { status: 400 },
+      );
+    }
+
+    // Supabase 클라이언트 생성
+    const supabase = await createClient();
+
+    // 메모 업데이트
+    const { data, error } = await supabase
+      .from("candidates")
+      .update({ memo: body.memo || null })
+      .eq("id", candidateId)
+      .select("memo")
+      .single();
+
+    if (error) {
+      throw new Error(`메모 수정 실패: ${error.message}`);
+    }
+
+    return new Response(JSON.stringify({ memo: data?.memo || null }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[DELETE /candidates/{id}] 후보지 삭제 실패:", error);
+    console.error("[PATCH /candidates/memo] 메모 수정 실패:", error);
     const message = error instanceof Error ? error.message : "서버 오류가 발생했습니다.";
-
-    // 권한 오류인 경우
-    if (message.includes("새로운 행을 위반") || message.includes("정책")) {
-      return new Response(JSON.stringify({ error: "삭제 권한이 없습니다." }), {
-        status: 403,
-      });
-    }
-
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
     });

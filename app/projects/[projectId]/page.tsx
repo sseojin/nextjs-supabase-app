@@ -18,8 +18,10 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { ProjectWithMembers } from "@/lib/types/project";
 import type { LocationSearchResult, AddLocationData } from "@/lib/types/location";
+import type { CandidateWithUserVote } from "@/lib/types/candidate";
 import ShareLinkButton from "@/components/projects/ShareLinkButton";
 import MemberList from "@/components/projects/MemberList";
+import CandidateList from "@/components/projects/CandidateList";
 import LocationSearch from "@/components/map/LocationSearch";
 import NaverMap from "@/components/map/NaverMap";
 import AddLocationModal from "@/components/map/AddLocationModal";
@@ -54,6 +56,15 @@ export default function ProjectDetailPage() {
   const [selectedLocation, setSelectedLocation] = useState<LocationSearchResult | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [locationToAdd, setLocationToAdd] = useState<LocationSearchResult | null>(null);
+
+  // Phase 4: 탭 시스템 상태
+  const [activeTab, setActiveTab] = useState<"info" | "members" | "candidates">("info");
+  const [candidates, setCandidates] = useState<CandidateWithUserVote[]>([]);
+
+  // 지도 포커스용 좌표 상태
+  const [focusCoordinates, setFocusCoordinates] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
 
   // 검색 결과 영역 참조 (배경 클릭 감지용)
   const searchAreaRef = useRef<HTMLDivElement>(null);
@@ -122,6 +133,60 @@ export default function ProjectDetailPage() {
       fetchProject();
     }
   }, [projectId]);
+
+  /**
+   * 후보지 목록을 서버에서 조회
+   * 지도에 마커를 표시하고, 후보지 탭에서 데이터를 사용합니다
+   */
+  const refetchCandidates = async () => {
+    try {
+      // Supabase 세션에서 토큰 가져오기
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        return; // 세션이 없으면 조회하지 않음
+      }
+
+      const response = await fetch(`/api/projects/${projectId}/candidates`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.warn("[프로젝트] 후보지 조회 실패:", response.status);
+        return;
+      }
+
+      const data = await response.json();
+      setCandidates(data);
+    } catch (err) {
+      console.error("[프로젝트] 후보지 조회 에러:", err);
+      // 에러가 발생해도 계속 진행 (지도 기능에만 영향)
+    }
+  };
+
+  /**
+   * Phase 4: 후보지 목록 초기 조회 (페이지 로드 시)
+   */
+  useEffect(() => {
+    if (projectId) {
+      refetchCandidates();
+    }
+  }, [projectId]);
+
+  /**
+   * 후보지 탭을 클릭할 때마다 최신 데이터 조회
+   * (다른 멤버의 투표 결과 반영)
+   */
+  useEffect(() => {
+    if (activeTab === "candidates") {
+      refetchCandidates();
+    }
+  }, [activeTab]);
 
   /**
    * showSearchResults 업데이트 시 ref도 함께 업데이트
@@ -199,10 +264,25 @@ export default function ProjectDetailPage() {
   }, []);
 
   /**
-   * 검색 결과 닫기 (목록만 닫고 지도는 그대로)
+   * 검색 결과 닫기 (검색 목록, 검색 마커, InfoWindow 모두 제거)
+   * 다시 검색하면 정상적으로 나타남
    */
   const handleCloseSearchResults = useCallback(() => {
-    setShowSearchResults(false);
+    setShowSearchResults(false); // 검색 결과 목록 닫기
+    setSearchResults([]); // 검색 마커 제거
+    setSelectedLocation(null); // InfoWindow 제거
+  }, []);
+
+  /**
+   * 후보지 카드 클릭 핸들러
+   * 선정된 후보지(찬성 >= 66%)를 클릭하면 해당 위치로 지도 포커스
+   */
+  const handleCandidateClick = useCallback((candidate: CandidateWithUserVote) => {
+    // 지도 영역으로 스크롤
+    mapAreaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // 지도를 해당 좌표로 포커스
+    setFocusCoordinates({ lat: candidate.lat, lng: candidate.lng });
   }, []);
 
   /**
@@ -218,21 +298,72 @@ export default function ProjectDetailPage() {
 
   /**
    * AddLocationModal 제출 핸들러
-   * Phase 4에서 POST /api/projects/{projectId}/locations 연동 예정
-   * 현재는 콘솔 로그 + 토스트 메시지로 준비 상황 표시
+   * POST /api/projects/{projectId}/candidates에 후보지 데이터를 전송합니다
+   * 성공 시 AddLocationModal에서 토스트 알림과 모달 닫기 처리
+   * 실패 시 에러를 throw하여 AddLocationModal의 에러 처리로 위임
    */
   const handleAddLocationSubmit = async (data: AddLocationData) => {
     try {
-      // Phase 4에서 구현할 API 호출
-      // const response = await fetch(`/api/projects/${projectId}/locations`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(data),
-      // });
+      // Supabase 세션에서 토큰 가져오기
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      // 현재는 콘솔 로그와 토스트로 진행 상황 표시
-      console.warn("[Phase 4 준비] 후보지 등록 데이터:", data);
-      toast.info("Phase 4에서 API 연동 예정입니다");
+      if (!session) {
+        throw new Error("인증이 필요합니다. 다시 로그인해주세요.");
+      }
+
+      // API가 요구하는 형식으로 데이터 변환
+      const candidateData = {
+        location_name: data.name,
+        address: data.address,
+        category: data.category,
+        lat: data.latitude,
+        lng: data.longitude,
+        memo: data.memo,
+      };
+
+      // POST /api/projects/{projectId}/candidates 호출
+      const response = await fetch(`/api/projects/${projectId}/candidates`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(candidateData),
+      });
+
+      if (!response.ok) {
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData?.error || "후보지 등록에 실패했습니다");
+        } catch {
+          throw new Error(`후보지 등록 실패: HTTP ${response.status}`);
+        }
+      }
+
+      // 성공 시 응답 데이터 반환 (토스트는 AddLocationModal에서 처리)
+      const result = await response.json();
+
+      // 후보지 목록 새로고침 (지도에 마커 표시하기 위해)
+      const candidatesResponse = await fetch(`/api/projects/${projectId}/candidates`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (candidatesResponse.ok) {
+        const candidatesData = await candidatesResponse.json();
+        setCandidates(candidatesData);
+      }
+
+      // 등록 성공 후 검색 결과 초기화 (검색 마커와 InfoWindow 제거)
+      setSearchResults([]);
+      setSelectedLocation(null);
+      setShowSearchResults(false);
+
+      return result;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "후보지 등록 중 오류가 발생했습니다";
@@ -381,70 +512,111 @@ export default function ProjectDetailPage() {
                     onLocationSelect={handleLocationSelect}
                     onAddLocation={handleAddLocationClick}
                     userRole={project.role}
+                    candidates={candidates}
+                    focusCoordinates={focusCoordinates}
                     className="w-full h-full"
                   />
                 </div>
               </div>
 
-              {/* 우측: 프로젝트 정보 패널 (lg: 40%) */}
-              <div className="flex-1 p-6 space-y-6 bg-slate-50 lg:bg-white">
-                {/* 프로젝트 정보 카드 */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-slate-900">프로젝트 정보</h3>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">날짜</label>
-                    <p className="text-sm text-slate-900">{formattedDate}</p>
-                  </div>
-
-                  <div className="border-t border-slate-200 pt-3">
-                    <label className="text-xs font-medium text-slate-600">상태</label>
-                    <div className="flex gap-2 items-center mt-2">
-                      <span
-                        className={`
-                        px-3 py-1 rounded-full text-xs font-medium
-                        ${
-                          project.status === "active"
-                            ? "bg-green-100 text-green-700"
-                            : project.status === "archived"
-                              ? "bg-gray-100 text-gray-700"
-                              : "bg-blue-100 text-blue-700"
-                        }
-                      `}
-                      >
-                        {project.status === "active"
-                          ? "진행 중"
-                          : project.status === "archived"
-                            ? "보관됨"
-                            : "완료"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {project.created_at && (
-                    <div className="border-t border-slate-200 pt-3">
-                      <label className="text-xs font-medium text-slate-600">생성일</label>
-                      <p className="text-xs text-slate-600 mt-1">
-                        {format(new Date(project.created_at), "yyyy년 M월 d일 HH:mm", {
-                          locale: ko,
-                        })}
-                      </p>
-                    </div>
-                  )}
+              {/* 우측: 탭 시스템 패널 (lg: 40%) */}
+              <div className="flex-1 flex flex-col bg-slate-50 lg:bg-white lg:border-l lg:border-slate-200 h-[400px] lg:h-[600px]">
+                {/* 탭 헤더 */}
+                <div className="flex border-b border-slate-200 bg-white flex-shrink-0">
+                  {["info", "members", "candidates"].map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab as typeof activeTab)}
+                      className={`flex-1 px-4 py-3 text-xs font-medium transition-colors ${
+                        activeTab === tab
+                          ? "border-b-2 border-blue-600 text-blue-600"
+                          : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                      }`}
+                    >
+                      {tab === "info" ? "정보" : tab === "members" ? "멤버" : "후보지"}
+                    </button>
+                  ))}
                 </div>
 
-                {/* 공유 링크 섹션 */}
-                {project.share_link && (
-                  <div className="border-t border-slate-200 pt-6">
-                    <h3 className="text-sm font-semibold text-slate-900 mb-3">공유 링크</h3>
-                    <ShareLinkButton projectId={project.id} shareLink={project.share_link} />
-                  </div>
-                )}
+                {/* 탭 콘텐츠 */}
+                <div className="flex-1 p-6 overflow-y-auto min-h-0">
+                  {/* 정보 탭 */}
+                  {activeTab === "info" && (
+                    <div className="space-y-6">
+                      {/* 프로젝트 정보 카드 */}
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-semibold text-slate-900">프로젝트 정보</h3>
 
-                {/* 멤버 목록 섹션 */}
-                <div className="border-t border-slate-200 pt-6">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-3">멤버</h3>
-                  <MemberList members={project.members} />
+                        <div>
+                          <label className="text-xs font-medium text-slate-600">날짜</label>
+                          <p className="text-sm text-slate-900">{formattedDate}</p>
+                        </div>
+
+                        <div className="border-t border-slate-200 pt-3">
+                          <label className="text-xs font-medium text-slate-600">상태</label>
+                          <div className="flex gap-2 items-center mt-2">
+                            <span
+                              className={`
+                              px-3 py-1 rounded-full text-xs font-medium
+                              ${
+                                project.status === "active"
+                                  ? "bg-green-100 text-green-700"
+                                  : project.status === "archived"
+                                    ? "bg-gray-100 text-gray-700"
+                                    : "bg-blue-100 text-blue-700"
+                              }
+                            `}
+                            >
+                              {project.status === "active"
+                                ? "진행 중"
+                                : project.status === "archived"
+                                  ? "보관됨"
+                                  : "완료"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {project.created_at && (
+                          <div className="border-t border-slate-200 pt-3">
+                            <label className="text-xs font-medium text-slate-600">생성일</label>
+                            <p className="text-xs text-slate-600 mt-1">
+                              {format(new Date(project.created_at), "yyyy년 M월 d일 HH:mm", {
+                                locale: ko,
+                              })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 공유 링크 섹션 */}
+                      {project.share_link && (
+                        <div className="border-t border-slate-200 pt-6">
+                          <h3 className="text-sm font-semibold text-slate-900 mb-3">공유 링크</h3>
+                          <ShareLinkButton projectId={project.id} shareLink={project.share_link} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 멤버 탭 */}
+                  {activeTab === "members" && (
+                    <div>
+                      <MemberList members={project.members} />
+                    </div>
+                  )}
+
+                  {/* 후보지 탭 */}
+                  {activeTab === "candidates" && (
+                    <div>
+                      <CandidateList
+                        projectId={projectId}
+                        candidates={candidates}
+                        onCandidatesUpdate={setCandidates}
+                        totalMembers={project.members.length}
+                        onCardClick={handleCandidateClick}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -457,6 +629,7 @@ export default function ProjectDetailPage() {
           location={locationToAdd}
           onClose={() => setIsAddModalOpen(false)}
           onSubmit={handleAddLocationSubmit}
+          existingLocationNames={candidates.map((c) => c.location_name)}
         />
 
         {/* 삭제 확인 다이얼로그 */}

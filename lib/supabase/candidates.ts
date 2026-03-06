@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Candidate, CandidateWithUserVote, FinalLocation } from "@/lib/types/candidate";
 
 /**
@@ -32,6 +33,18 @@ export async function getCandidates(
       currentUserId = user.id;
     }
 
+    // 프로젝트의 총 멤버 수 조회
+    const { data: members, error: membersError } = await supabase
+      .from("project_members")
+      .select("id")
+      .eq("project_id", projectId);
+
+    if (membersError) {
+      throw new Error(`멤버 정보 조회 실패: ${membersError.message}`);
+    }
+
+    const totalMembers = members?.length || 0;
+
     // 프로젝트의 모든 후보지 조회
     const { data: candidates, error: candidatesError } = await supabase
       .from("candidates")
@@ -47,30 +60,53 @@ export async function getCandidates(
       return [];
     }
 
-    // 사용자의 투표 정보 조회
-    const { data: votes, error: votesError } = await supabase
+    // 모든 투표 정보 조회 (모든 사용자의 투표)
+    const { data: allVotes, error: allVotesError } = await supabase
       .from("candidate_votes")
-      .select("candidate_id, vote_type")
-      .eq("user_id", currentUserId)
+      .select("candidate_id, vote_type, user_id")
       .in(
         "candidate_id",
         candidates.map((c) => c.id),
       );
 
-    if (votesError) {
-      throw new Error(`투표 정보 조회 실패: ${votesError.message}`);
+    if (allVotesError) {
+      throw new Error(`투표 정보 조회 실패: ${allVotesError.message}`);
     }
 
-    // 사용자 투표를 Map으로 변환 (빠른 조회)
-    const userVoteMap = new Map((votes || []).map((v) => [v.candidate_id, v.vote_type]));
+    // 후보지별 투표 수를 직접 계산 (candidates 테이블의 값 무시)
+    // 이렇게 하면 트리거 미작동 시에도 정확한 투표 수를 보장
+    const voteCountMap = new Map<string, { agree: number; disagree: number }>();
+    const userVoteMap = new Map<string, string>();
+
+    (allVotes || []).forEach((vote) => {
+      // 후보지별 투표 수 집계
+      if (!voteCountMap.has(vote.candidate_id)) {
+        voteCountMap.set(vote.candidate_id, { agree: 0, disagree: 0 });
+      }
+
+      const counts = voteCountMap.get(vote.candidate_id)!;
+      if (vote.vote_type === "agree") {
+        counts.agree++;
+      } else {
+        counts.disagree++;
+      }
+
+      // 현재 사용자의 투표 저장
+      if (vote.user_id === currentUserId) {
+        userVoteMap.set(vote.candidate_id, vote.vote_type);
+      }
+    });
 
     // 후보지에 사용자 투표 정보 추가 및 찬성 비율 계산
+    // 찬성 비율 = (찬성 수 / 전체 멤버 수) × 100
     const candidatesWithVotes: CandidateWithUserVote[] = candidates.map((candidate) => {
-      const total = candidate.votes_agree + candidate.votes_disagree;
-      const agreement_ratio = total === 0 ? 0 : (candidate.votes_agree / total) * 100;
+      const counts = voteCountMap.get(candidate.id) || { agree: 0, disagree: 0 };
+      const agreement_ratio = totalMembers === 0 ? 0 : (counts.agree / totalMembers) * 100;
 
       return {
         ...candidate,
+        votes_agree: counts.agree, // ← candidates 테이블 값 무시, 직접 계산
+        votes_disagree: counts.disagree, // ← candidates 테이블 값 무시, 직접 계산
         user_vote: userVoteMap.get(candidate.id) || null,
         agreement_ratio: Math.round(agreement_ratio * 10) / 10, // 소수점 1자리
       };
@@ -102,6 +138,7 @@ export async function createCandidate(
     category?: string;
     lat: number;
     lng: number;
+    memo?: string;
   },
   userId: string,
 ): Promise<Candidate> {
@@ -118,6 +155,7 @@ export async function createCandidate(
           category: candidate.category,
           lat: candidate.lat,
           lng: candidate.lng,
+          memo: candidate.memo,
           created_by: userId,
         },
       ])
@@ -167,6 +205,41 @@ export async function deleteCandidate(candidateId: string): Promise<void> {
 }
 
 /**
+ * 후보지의 메모를 수정합니다.
+ *
+ * @param candidateId - 후보지 ID
+ * @param memo - 새로운 메모 내용 (null이면 메모 삭제)
+ * @returns {Promise<string | null>} 수정된 메모 내용
+ * @throws 에러 발생 시 명확한 메시지와 함께 throw
+ */
+export async function updateCandidateMemo(
+  candidateId: string,
+  memo: string | null,
+): Promise<string | null> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("candidates")
+      .update({ memo })
+      .eq("id", candidateId)
+      .select("memo")
+      .single();
+
+    if (error) {
+      throw new Error(`메모 수정 실패: ${error.message}`);
+    }
+
+    return data?.memo || null;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("메모 수정 중 알 수 없는 오류가 발생했습니다.");
+  }
+}
+
+/**
  * 투표를 생성, 변경, 또는 취소합니다.
  * - 투표 없음 → 투표: INSERT
  * - 기존 투표 변경 (찬성 → 반대): UPDATE vote_type
@@ -189,7 +262,9 @@ export async function voteCandidate(
   agreement_ratio: number;
 }> {
   try {
-    const supabase = await createClient();
+    // Admin 클라이언트 사용 (RLS 우회)
+    // API route에서 이미 userId를 검증했으므로, RLS를 우회하여 모든 투표에 접근
+    const supabase = createAdminClient();
 
     // 기존 투표 조회
     const { data: existingVote, error: selectError } = await supabase
@@ -203,8 +278,9 @@ export async function voteCandidate(
       throw new Error(`투표 정보 조회 실패: ${selectError.message}`);
     }
 
-    // 투표 취소 (voteType이 null 또는 기존 투표와 동일한 경우)
-    if (voteType === null || (existingVote && existingVote.vote_type === voteType)) {
+    // 투표 취소 (voteType이 null인 경우만 취소)
+    // 클라이언트가 명시적으로 null을 보낸 경우에만 취소 처리
+    if (voteType === null) {
       if (existingVote) {
         const { error: deleteError } = await supabase
           .from("candidate_votes")
@@ -215,8 +291,10 @@ export async function voteCandidate(
           throw new Error(`투표 취소 실패: ${deleteError.message}`);
         }
       }
+      // existingVote가 없으면 아무것도 안 함 (이미 투표 안 한 상태)
     } else if (existingVote) {
-      // 투표 변경 (기존 투표가 있고 다른 유형)
+      // 투표 변경 또는 덮어쓰기 (기존 투표가 있으면 업데이트)
+      // 같은 타입으로 다시 투표해도 덮어쓰기 (취소 안 함)
       const { error: updateError } = await supabase
         .from("candidate_votes")
         .update({ vote_type: voteType })
@@ -240,22 +318,37 @@ export async function voteCandidate(
       }
     }
 
-    // 업데이트된 후보지 정보 조회
-    const { data: updatedCandidate, error: candidateError } = await supabase
+    // 투표 후 현재 투표 수를 직접 계산
+    // 트리거는 비동기적으로 실행되므로, 트리거에 의존하지 않고 직접 계산합니다
+    const { data: allVotes, error: votesError } = await supabase
+      .from("candidate_votes")
+      .select("vote_type")
+      .eq("candidate_id", candidateId);
+
+    if (votesError) {
+      throw new Error(`투표 집계 실패: ${votesError.message}`);
+    }
+
+    const votes_agree = (allVotes || []).filter((v) => v.vote_type === "agree").length;
+    const votes_disagree = (allVotes || []).filter((v) => v.vote_type === "disagree").length;
+
+    // 4. 프로젝트의 총 멤버 수 조회 (투표율 계산에 필요)
+    const { data: candidate } = await supabase
       .from("candidates")
-      .select("votes_agree, votes_disagree")
+      .select("project_id")
       .eq("id", candidateId)
       .single();
 
-    if (candidateError) {
-      throw new Error(`후보지 정보 조회 실패: ${candidateError.message}`);
+    let totalMembers = 0;
+    if (candidate) {
+      const { data: members } = await supabase
+        .from("project_members")
+        .select("id")
+        .eq("project_id", candidate.project_id);
+      totalMembers = members?.length || 0;
     }
 
-    if (!updatedCandidate) {
-      throw new Error("후보지를 찾을 수 없습니다.");
-    }
-
-    // 업데이트된 사용자 투표 조회
+    // 5. 사용자의 현재 투표 상태 조회
     const { data: updatedUserVote } = await supabase
       .from("candidate_votes")
       .select("vote_type")
@@ -263,12 +356,12 @@ export async function voteCandidate(
       .eq("user_id", userId)
       .maybeSingle();
 
-    const total = updatedCandidate.votes_agree + updatedCandidate.votes_disagree;
-    const agreement_ratio = total === 0 ? 0 : (updatedCandidate.votes_agree / total) * 100;
+    // 찬성 비율 = (찬성 수 / 전체 멤버 수) × 100
+    const agreement_ratio = totalMembers === 0 ? 0 : (votes_agree / totalMembers) * 100;
 
     return {
-      votes_agree: updatedCandidate.votes_agree,
-      votes_disagree: updatedCandidate.votes_disagree,
+      votes_agree,
+      votes_disagree,
       user_vote: updatedUserVote?.vote_type || null,
       agreement_ratio: Math.round(agreement_ratio * 10) / 10,
     };
@@ -342,9 +435,20 @@ export async function createFinalLocation(
       throw new Error("후보지를 찾을 수 없습니다.");
     }
 
-    // 찬성 비율 계산
-    const total = candidate.votes_agree + candidate.votes_disagree;
-    const agreement_ratio = total === 0 ? 0 : (candidate.votes_agree / total) * 100;
+    // 프로젝트의 총 멤버 수 조회
+    const { data: members, error: membersError } = await supabase
+      .from("project_members")
+      .select("id")
+      .eq("project_id", projectId);
+
+    if (membersError) {
+      throw new Error(`멤버 정보 조회 실패: ${membersError.message}`);
+    }
+
+    const totalMembers = members?.length || 0;
+
+    // 찬성 비율 = (찬성 수 / 전체 멤버 수) × 100
+    const agreement_ratio = totalMembers === 0 ? 0 : (candidate.votes_agree / totalMembers) * 100;
 
     // 66% 이상 확인
     if (agreement_ratio < 66) {

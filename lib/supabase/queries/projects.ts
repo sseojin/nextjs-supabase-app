@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import type { Project, ProjectWithMembers } from '@/lib/types/project';
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { Project, ProjectWithMembers } from "@/lib/types/project";
 
 /**
  * 사용자가 참여한 프로젝트를 월별로 조회합니다.
@@ -15,7 +15,7 @@ import type { Project, ProjectWithMembers } from '@/lib/types/project';
 export async function getProjectsByMonth(
   year: number,
   month: number,
-  userId?: string
+  userId?: string,
 ): Promise<Project[]> {
   try {
     const supabase = await createClient();
@@ -29,14 +29,14 @@ export async function getProjectsByMonth(
       } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        throw new Error('인증이 필요합니다.');
+        throw new Error("인증이 필요합니다.");
       }
 
       currentUserId = user.id;
     }
 
     if (!currentUserId) {
-      throw new Error('인증이 필요합니다.');
+      throw new Error("인증이 필요합니다.");
     }
 
     // 월의 시작일과 종료일 계산
@@ -45,7 +45,7 @@ export async function getProjectsByMonth(
 
     // project_members와 projects 조인하여 사용자가 참여한 프로젝트 조회
     const { data, error } = await supabase
-      .from('project_members')
+      .from("project_members")
       .select(
         `
         role,
@@ -61,11 +61,11 @@ export async function getProjectsByMonth(
           created_at,
           updated_at
         )
-      `
+      `,
       )
-      .eq('user_id', currentUserId)
-      .gte('projects.date', startDate.toISOString().split('T')[0])
-      .lte('projects.date', endDate.toISOString().split('T')[0]);
+      .eq("user_id", currentUserId)
+      .gte("projects.date", startDate.toISOString().split("T")[0])
+      .lte("projects.date", endDate.toISOString().split("T")[0]);
 
     if (error) {
       throw new Error(`프로젝트 조회 실패: ${error.message}`);
@@ -73,23 +73,20 @@ export async function getProjectsByMonth(
 
     // 응답 데이터를 Project[] 형식으로 변환
     // null 체크: projects가 없는 멤버십 레코드는 필터링
+    type MemberWithProject = { projects: Record<string, unknown> | null; role: string };
     const projects: Project[] = (data || [])
-      .filter((member: any) => member.projects !== null) // null 프로젝트 필터링
-      .map((member: any) => ({
+      .filter((member: MemberWithProject) => member.projects !== null) // null 프로젝트 필터링
+      .map((member: MemberWithProject) => ({
         id: member.projects.id,
         title: member.projects.title,
         date: new Date(member.projects.date),
         creator_id: member.projects.creator_id,
         share_link: member.projects.share_link,
         status: member.projects.status,
-        role: member.role as 'creator' | 'member',
+        role: member.role as "creator" | "member",
         location: member.projects.location,
-        created_at: member.projects.created_at
-          ? new Date(member.projects.created_at)
-          : undefined,
-        updated_at: member.projects.updated_at
-          ? new Date(member.projects.updated_at)
-          : undefined,
+        created_at: member.projects.created_at ? new Date(member.projects.created_at) : undefined,
+        updated_at: member.projects.updated_at ? new Date(member.projects.updated_at) : undefined,
       }));
 
     // 날짜순 정렬
@@ -97,7 +94,7 @@ export async function getProjectsByMonth(
 
     return projects;
   } catch (error) {
-    console.error('getProjectsByMonth 에러:', error);
+    console.error("getProjectsByMonth 에러:", error);
     throw error;
   }
 }
@@ -119,36 +116,36 @@ export async function createProject(
   date: Date,
   userId: string,
   shareLink: string,
-  location?: string
+  location?: string,
 ): Promise<Project> {
   try {
     // 유효성 검사
     if (!title || title.trim().length < 2) {
-      throw new Error('프로젝트 제목은 최소 2자 이상이어야 합니다.');
+      throw new Error("프로젝트 제목은 최소 2자 이상이어야 합니다.");
     }
 
     if (!date) {
-      throw new Error('프로젝트 날짜는 필수입니다.');
+      throw new Error("프로젝트 날짜는 필수입니다.");
     }
 
     if (!shareLink || shareLink.length !== 10) {
-      throw new Error('공유 링크는 10자여야 합니다.');
+      throw new Error("공유 링크는 10자여야 합니다.");
     }
 
     const supabase = await createClient();
 
     // 날짜 포맷: YYYY-MM-DD
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = date.toISOString().split("T")[0];
 
     // 1. projects INSERT
     const { data: projectData, error: projectError } = await supabase
-      .from('projects')
+      .from("projects")
       .insert({
         title: title.trim(),
         date: dateString,
         creator_id: userId,
         share_link: shareLink,
-        status: 'active',
+        status: "active",
         ...(location && location.trim() && { location: location.trim() }),
       })
       .select()
@@ -159,15 +156,15 @@ export async function createProject(
     }
 
     if (!projectData) {
-      throw new Error('프로젝트 생성 실패: 응답 데이터가 없습니다.');
+      throw new Error("프로젝트 생성 실패: 응답 데이터가 없습니다.");
     }
 
     // 2. project_members INSERT (creator 추가)
-    const { error: memberError } = await supabase.from('project_members').insert({
+    const { error: memberError } = await supabase.from("project_members").insert({
       project_id: projectData.id,
       user_id: userId,
-      role: 'creator',
-      display_color: '#FF0000', // creator: 빨강
+      role: "creator",
+      display_color: "#9333EA", // creator: 보라 (purple-600)
     });
 
     if (memberError) {
@@ -183,19 +180,15 @@ export async function createProject(
       creator_id: projectData.creator_id,
       share_link: projectData.share_link,
       status: projectData.status,
-      role: 'creator',
+      role: "creator",
       location: projectData.location,
-      created_at: projectData.created_at
-        ? new Date(projectData.created_at)
-        : undefined,
-      updated_at: projectData.updated_at
-        ? new Date(projectData.updated_at)
-        : undefined,
+      created_at: projectData.created_at ? new Date(projectData.created_at) : undefined,
+      updated_at: projectData.updated_at ? new Date(projectData.updated_at) : undefined,
     };
 
     return project;
   } catch (error) {
-    console.error('createProject 에러:', error);
+    console.error("createProject 에러:", error);
     throw error;
   }
 }
@@ -208,14 +201,17 @@ export async function createProject(
  * @returns {Promise<ProjectWithMembers>} 프로젝트 + 멤버 목록
  * @throws 프로젝트를 찾을 수 없거나 DB 에러 시 throw
  */
-export async function getProjectById(projectId: string, userId?: string): Promise<ProjectWithMembers> {
+export async function getProjectById(
+  projectId: string,
+  userId?: string,
+): Promise<ProjectWithMembers> {
   try {
     const supabase = await createClient();
 
     // 프로젝트 + 멤버 목록 조회
     // maybeSingle() 사용: 행이 없거나 1행일 때만 성공 (0행이면 null 반환)
     const { data: projectData, error: projectError } = await supabase
-      .from('projects')
+      .from("projects")
       .select(
         `
         id,
@@ -235,9 +231,9 @@ export async function getProjectById(projectId: string, userId?: string): Promis
           display_color,
           joined_at
         )
-      `
+      `,
       )
-      .eq('id', projectId)
+      .eq("id", projectId)
       .maybeSingle();
 
     if (projectError) {
@@ -245,7 +241,7 @@ export async function getProjectById(projectId: string, userId?: string): Promis
     }
 
     if (!projectData) {
-      throw new Error('프로젝트를 찾을 수 없습니다.');
+      throw new Error("프로젝트를 찾을 수 없습니다.");
     }
 
     // 현재 사용자 조회 (역할 결정용)
@@ -257,22 +253,75 @@ export async function getProjectById(projectId: string, userId?: string): Promis
       } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        throw new Error('인증이 필요합니다.');
+        throw new Error("인증이 필요합니다.");
       }
 
       currentUserId = user.id;
     }
 
     if (!currentUserId) {
-      throw new Error('인증이 필요합니다.');
+      throw new Error("인증이 필요합니다.");
     }
 
     // 현재 사용자의 역할 찾기
-    const userMembership = (projectData.project_members as any[]).find(
-      (member) => member.user_id === currentUserId
+    type MemberRecord = { user_id: string; role: string };
+    const userMembership = (projectData.project_members as MemberRecord[]).find(
+      (member) => member.user_id === currentUserId,
     );
 
-    const role = userMembership?.role || 'member';
+    const role = userMembership?.role || "member";
+
+    // 각 멤버의 사용자 정보 조회 (auth.users에서 email과 user_metadata)
+    const adminClient = createAdminClient();
+    const membersWithUserInfo = await Promise.all(
+      (projectData.project_members as MemberRecord[]).map(async (member) => {
+        try {
+          const { data: userData, error: userError } = await adminClient.auth.admin.getUserById(
+            member.user_id,
+          );
+
+          if (userError || !userData.user) {
+            console.warn(
+              `[getProjectById] 사용자 정보 조회 실패 (user_id: ${member.user_id}):`,
+              userError,
+            );
+            return {
+              id: member.id,
+              project_id: member.project_id,
+              user_id: member.user_id,
+              role: member.role,
+              display_color: member.display_color,
+              joined_at: new Date(member.joined_at),
+              user_email: undefined,
+              user_name: undefined,
+            };
+          }
+
+          return {
+            id: member.id,
+            project_id: member.project_id,
+            user_id: member.user_id,
+            role: member.role,
+            display_color: member.display_color,
+            joined_at: new Date(member.joined_at),
+            user_email: userData.user.email,
+            user_name: userData.user.user_metadata?.full_name,
+          };
+        } catch (err) {
+          console.warn(`[getProjectById] 사용자 정보 조회 예외 (user_id: ${member.user_id}):`, err);
+          return {
+            id: member.id,
+            project_id: member.project_id,
+            user_id: member.user_id,
+            role: member.role,
+            display_color: member.display_color,
+            joined_at: new Date(member.joined_at),
+            user_email: undefined,
+            user_name: undefined,
+          };
+        }
+      }),
+    );
 
     // ProjectWithMembers 객체 생성
     const project: ProjectWithMembers = {
@@ -282,27 +331,16 @@ export async function getProjectById(projectId: string, userId?: string): Promis
       creator_id: projectData.creator_id,
       share_link: projectData.share_link,
       status: projectData.status,
-      role: role as 'creator' | 'member',
+      role: role as "creator" | "member",
       location: projectData.location,
-      created_at: projectData.created_at
-        ? new Date(projectData.created_at)
-        : undefined,
-      updated_at: projectData.updated_at
-        ? new Date(projectData.updated_at)
-        : undefined,
-      members: (projectData.project_members as any[]).map((member) => ({
-        id: member.id,
-        project_id: member.project_id,
-        user_id: member.user_id,
-        role: member.role,
-        display_color: member.display_color,
-        joined_at: new Date(member.joined_at),
-      })),
+      created_at: projectData.created_at ? new Date(projectData.created_at) : undefined,
+      updated_at: projectData.updated_at ? new Date(projectData.updated_at) : undefined,
+      members: membersWithUserInfo,
     };
 
     return project;
   } catch (error) {
-    console.error('getProjectById 에러:', error);
+    console.error("getProjectById 에러:", error);
     throw error;
   }
 }
@@ -318,16 +356,16 @@ export async function getProjectById(projectId: string, userId?: string): Promis
  */
 export async function joinProject(
   projectId: string,
-  userId: string
-): Promise<any> {
+  userId: string,
+): Promise<{ id: string; project_id: string; user_id: string; role: string }> {
   try {
     const supabase = await createClient();
 
     // 1단계: 프로젝트 존재 여부 확인
     const { data: projectData, error: projectError } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('id', projectId)
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
       .maybeSingle();
 
     if (projectError) {
@@ -335,16 +373,16 @@ export async function joinProject(
     }
 
     if (!projectData) {
-      throw new Error('프로젝트를 찾을 수 없습니다.');
+      throw new Error("프로젝트를 찾을 수 없습니다.");
     }
 
     // 2단계: 중복 참여 확인 (먼저 체크)
     // 이미 참여한 사용자가 다시 참여하려는 경우를 먼저 처리
     const { data: existingMember, error: existingError } = await supabase
-      .from('project_members')
-      .select('id')
-      .eq('project_id', projectId)
-      .eq('user_id', userId)
+      .from("project_members")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("user_id", userId)
       .maybeSingle();
 
     if (existingError) {
@@ -352,14 +390,14 @@ export async function joinProject(
     }
 
     if (existingMember) {
-      throw new Error('이미 참여한 프로젝트입니다.');
+      throw new Error("이미 참여한 프로젝트입니다.");
     }
 
     // 3단계: 현재 멤버 수 확인 (최대 2명)
     const { data: memberCountData, error: countError } = await supabase
-      .from('project_members')
-      .select('id', { count: 'exact' })
-      .eq('project_id', projectId);
+      .from("project_members")
+      .select("id", { count: "exact" })
+      .eq("project_id", projectId);
 
     if (countError) {
       throw new Error(`멤버 조회 실패: ${countError.message}`);
@@ -367,17 +405,17 @@ export async function joinProject(
 
     const memberCount = memberCountData?.length || 0;
     if (memberCount >= 2) {
-      throw new Error('최대 2명까지만 참여 가능합니다.');
+      throw new Error("최대 2명까지만 참여 가능합니다.");
     }
 
     // 4단계: 멤버 추가
     const { data: newMember, error: insertError } = await supabase
-      .from('project_members')
+      .from("project_members")
       .insert({
         project_id: projectId,
         user_id: userId,
-        role: 'member',
-        display_color: '#0000FF', // member: 파란색
+        role: "member",
+        display_color: "#EAB308", // member: 노랑 (yellow-500)
       })
       .select()
       .single();
@@ -387,7 +425,7 @@ export async function joinProject(
     }
 
     if (!newMember) {
-      throw new Error('멤버 추가에 실패했습니다.');
+      throw new Error("멤버 추가에 실패했습니다.");
     }
 
     return {
@@ -399,7 +437,7 @@ export async function joinProject(
       joined_at: new Date(newMember.joined_at),
     };
   } catch (error) {
-    console.error('joinProject 에러:', error);
+    console.error("joinProject 에러:", error);
     throw error;
   }
 }
@@ -416,7 +454,7 @@ export async function getProjectByShareLink(shareLink: string): Promise<Project>
   try {
     // share_link 유효성 검증
     if (!shareLink || shareLink.length !== 10) {
-      throw new Error('공유 링크가 유효하지 않습니다.');
+      throw new Error("공유 링크가 유효하지 않습니다.");
     }
 
     // Service Role Key를 사용한 Admin 클라이언트 (RLS 무시)
@@ -425,7 +463,7 @@ export async function getProjectByShareLink(shareLink: string): Promise<Project>
 
     // share_link로 프로젝트 조회
     const { data: projectData, error: projectError } = await adminClient
-      .from('projects')
+      .from("projects")
       .select(
         `
         id,
@@ -437,9 +475,9 @@ export async function getProjectByShareLink(shareLink: string): Promise<Project>
         location,
         created_at,
         updated_at
-      `
+      `,
       )
-      .eq('share_link', shareLink)
+      .eq("share_link", shareLink)
       .maybeSingle();
 
     if (projectError) {
@@ -447,7 +485,7 @@ export async function getProjectByShareLink(shareLink: string): Promise<Project>
     }
 
     if (!projectData) {
-      throw new Error('공유 링크를 찾을 수 없습니다.');
+      throw new Error("공유 링크를 찾을 수 없습니다.");
     }
 
     // Project 객체로 변환 (role은 member로 기본값 설정)
@@ -458,19 +496,15 @@ export async function getProjectByShareLink(shareLink: string): Promise<Project>
       creator_id: projectData.creator_id,
       share_link: projectData.share_link,
       status: projectData.status,
-      role: 'member', // 기본값: member (참여 페이지에서는 아직 멤버가 아님)
+      role: "member", // 기본값: member (참여 페이지에서는 아직 멤버가 아님)
       location: projectData.location,
-      created_at: projectData.created_at
-        ? new Date(projectData.created_at)
-        : undefined,
-      updated_at: projectData.updated_at
-        ? new Date(projectData.updated_at)
-        : undefined,
+      created_at: projectData.created_at ? new Date(projectData.created_at) : undefined,
+      updated_at: projectData.updated_at ? new Date(projectData.updated_at) : undefined,
     };
 
     return project;
   } catch (error) {
-    console.error('getProjectByShareLink 에러:', error);
+    console.error("getProjectByShareLink 에러:", error);
     throw error;
   }
 }
@@ -491,9 +525,9 @@ export async function deleteProject(projectId: string, userId: string): Promise<
     // 프로젝트의 creator_id 확인
     // maybeSingle() 사용: 행이 없거나 1행일 때만 성공 (0행이면 null 반환)
     const { data: projectData, error: projectError } = await supabase
-      .from('projects')
-      .select('creator_id')
-      .eq('id', projectId)
+      .from("projects")
+      .select("creator_id")
+      .eq("id", projectId)
       .maybeSingle();
 
     if (projectError) {
@@ -501,25 +535,22 @@ export async function deleteProject(projectId: string, userId: string): Promise<
     }
 
     if (!projectData) {
-      throw new Error('프로젝트를 찾을 수 없습니다.');
+      throw new Error("프로젝트를 찾을 수 없습니다.");
     }
 
     // creator 권한 확인
     if (projectData.creator_id !== userId) {
-      throw new Error('프로젝트는 생성자만 삭제할 수 있습니다.');
+      throw new Error("프로젝트는 생성자만 삭제할 수 있습니다.");
     }
 
     // 프로젝트 삭제
-    const { error: deleteError } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', projectId);
+    const { error: deleteError } = await supabase.from("projects").delete().eq("id", projectId);
 
     if (deleteError) {
       throw new Error(`프로젝트 삭제 실패: ${deleteError.message}`);
     }
   } catch (error) {
-    console.error('deleteProject 에러:', error);
+    console.error("deleteProject 에러:", error);
     throw error;
   }
 }

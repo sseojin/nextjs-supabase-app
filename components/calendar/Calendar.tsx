@@ -15,7 +15,6 @@ import {
 import type { Project, DateCellData } from "@/lib/types/project";
 import DateCell from "./DateCell";
 import CreateProjectModal from "./CreateProjectModal";
-import { toast } from "sonner";
 
 /**
  * 캘린더 메인 컴포넌트
@@ -28,7 +27,7 @@ import { toast } from "sonner";
  * - 날짜 클릭 시 프로젝트 생성 모달 열기
  * - 프로젝트 생성 시 API 호출 (POST /api/projects)
  * - API 응답으로 배지 표시
- * - 배지 색상: creator(빨강), member(파랑)
+ * - 배지 색상: creator(보라), member(노랑)
  * - 로딩 상태 표시
  * - 에러 처리
  */

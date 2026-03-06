@@ -1,11 +1,39 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
 import {
   voteCandidate,
   getFinalLocations,
   createFinalLocation,
   deleteFinalLocation,
 } from "@/lib/supabase/candidates";
+
+/**
+ * JWT 토큰에서 사용자 ID 추출
+ */
+function extractUserIdFromToken(token: string): string | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+
+    const payload = parts[1];
+    const decodedPayload = JSON.parse(Buffer.from(payload, "base64").toString("utf-8"));
+    return decodedPayload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 요청에서 사용자 ID 추출
+ */
+function getUserIdFromRequest(request: Request): string | null {
+  const authHeader = request.headers.get("authorization");
+
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    return extractUserIdFromToken(token);
+  }
+
+  return null;
+}
 
 /**
  * POST /api/projects/[projectId]/candidates/[candidateId]/vote
@@ -35,18 +63,15 @@ import {
  */
 export async function POST(
   request: Request,
-  { params }: { params: { projectId: string; candidateId: string } },
+  { params }: { params: Promise<{ projectId: string; candidateId: string }> },
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const { projectId, candidateId } = await params;
 
-    // 사용자 인증 확인
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Authorization 헤더에서 사용자 ID 추출
+    const userId = getUserIdFromRequest(request);
 
-    if (authError || !user) {
+    if (!userId) {
       return new Response(JSON.stringify({ error: "인증이 필요합니다." }), {
         status: 401,
       });
@@ -66,17 +91,17 @@ export async function POST(
     }
 
     // 투표 처리
-    const voteResult = await voteCandidate(params.candidateId, user.id, body.vote_type);
+    const voteResult = await voteCandidate(candidateId, userId, body.vote_type);
 
     // 찬성 비율 66% 이상 확인 -> 최종 장소로 자동 저장
     if (voteResult.agreement_ratio >= 66) {
       try {
         // 이미 저장된 최종 장소인지 확인
-        const finalLocations = await getFinalLocations(params.projectId);
-        const isAlreadySaved = finalLocations.some((fl) => fl.candidate_id === params.candidateId);
+        const finalLocations = await getFinalLocations(projectId);
+        const isAlreadySaved = finalLocations.some((fl) => fl.candidate_id === candidateId);
 
         if (!isAlreadySaved) {
-          await createFinalLocation(params.projectId, params.candidateId);
+          await createFinalLocation(projectId, candidateId);
         }
       } catch (error) {
         // 최종 장소 저장 실패는 로깅만 하고 투표 결과는 반환
@@ -85,7 +110,7 @@ export async function POST(
     } else {
       // 찬성 < 66% -> 최종 장소에서 제거
       try {
-        await deleteFinalLocation(params.candidateId);
+        await deleteFinalLocation(candidateId);
       } catch (error) {
         // 최종 장소 삭제는 실패해도 무시 (이미 없을 수 있음)
         console.error("최종 장소 삭제 실패:", error);

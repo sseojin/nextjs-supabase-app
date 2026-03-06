@@ -1,6 +1,34 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
 import { getCandidates, createCandidate } from "@/lib/supabase/candidates";
+
+/**
+ * JWT 토큰에서 사용자 ID 추출
+ */
+function extractUserIdFromToken(token: string): string | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+
+    const payload = parts[1];
+    const decodedPayload = JSON.parse(Buffer.from(payload, "base64").toString("utf-8"));
+    return decodedPayload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 요청에서 사용자 ID 추출
+ */
+function getUserIdFromRequest(request: Request): string | null {
+  const authHeader = request.headers.get("authorization");
+
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    return extractUserIdFromToken(token);
+  }
+
+  return null;
+}
 
 /**
  * GET /api/projects/[projectId]/candidates
@@ -12,31 +40,31 @@ import { getCandidates, createCandidate } from "@/lib/supabase/candidates";
  * - 404: 프로젝트 없음
  * - 500: 서버 에러
  */
-export async function GET(request: Request, { params }: { params: { projectId: string } }) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ projectId: string }> },
+) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const { projectId } = await params;
 
-    // 사용자 인증 확인
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Authorization 헤더에서 사용자 ID 추출
+    const userId = getUserIdFromRequest(request);
 
-    if (authError || !user) {
+    if (!userId) {
       return new Response(JSON.stringify({ error: "인증이 필요합니다." }), {
         status: 401,
       });
     }
 
-    // 후보지 조회
-    const candidates = await getCandidates(params.projectId, user.id);
+    // getCandidates 함수를 사용하여 후보지 조회
+    const candidates = await getCandidates(projectId, userId);
 
     return new Response(JSON.stringify(candidates), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("후보지 조회 실패:", error);
+    console.error("[GET /candidates] 후보지 조회 실패:", error);
     const message = error instanceof Error ? error.message : "서버 오류가 발생했습니다.";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
@@ -63,17 +91,17 @@ export async function GET(request: Request, { params }: { params: { projectId: s
  * - 401: 미인증
  * - 500: 서버 에러
  */
-export async function POST(request: Request, { params }: { params: { projectId: string } }) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ projectId: string }> },
+) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const { projectId } = await params;
 
-    // 사용자 인증 확인
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Authorization 헤더에서 사용자 ID 추출
+    const userId = getUserIdFromRequest(request);
 
-    if (authError || !user) {
+    if (!userId) {
       return new Response(JSON.stringify({ error: "인증이 필요합니다." }), {
         status: 401,
       });
@@ -92,17 +120,31 @@ export async function POST(request: Request, { params }: { params: { projectId: 
       );
     }
 
+    // 중복 체크: 같은 프로젝트에 이미 동일한 장소명이 있는지 확인
+    const existingCandidates = await getCandidates(projectId, userId);
+    const isDuplicate = existingCandidates.some((c) => c.location_name === body.location_name);
+
+    if (isDuplicate) {
+      return new Response(
+        JSON.stringify({
+          error: "이미 후보지로 등록되었습니다.",
+        }),
+        { status: 400 },
+      );
+    }
+
     // 후보지 생성
     const candidate = await createCandidate(
-      params.projectId,
+      projectId,
       {
         location_name: body.location_name,
         address: body.address,
         category: body.category,
         lat: parseFloat(body.lat),
         lng: parseFloat(body.lng),
+        memo: body.memo,
       },
-      user.id,
+      userId,
     );
 
     return new Response(JSON.stringify(candidate), {
@@ -110,7 +152,7 @@ export async function POST(request: Request, { params }: { params: { projectId: 
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("후보지 등록 실패:", error);
+    console.error("[POST /candidates] 후보지 등록 실패:", error);
     const message = error instanceof Error ? error.message : "서버 오류가 발생했습니다.";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,

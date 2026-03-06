@@ -148,11 +148,12 @@ export default function LocationSearch({
               <div className="space-y-2">
                 {results.map((result, index) => {
                   // 사용자 역할에 따라 배지 색상 결정
-                  const badgeColor = userRole === "creator" ? "bg-red-600" : "bg-blue-600";
+                  const badgeColor = userRole === "creator" ? "bg-purple-600" : "bg-yellow-500";
+                  const badgeTextColor = userRole === "creator" ? "text-white" : "text-gray-900";
                   const hoverBgColor =
-                    userRole === "creator" ? "hover:bg-red-50" : "hover:bg-blue-50";
+                    userRole === "creator" ? "hover:bg-purple-50" : "hover:bg-yellow-50";
                   const activeBgColor =
-                    userRole === "creator" ? "active:bg-red-100" : "active:bg-blue-100";
+                    userRole === "creator" ? "active:bg-purple-100" : "active:bg-yellow-100";
 
                   return (
                     <button
@@ -162,7 +163,7 @@ export default function LocationSearch({
                     >
                       {/* 번호 배지 */}
                       <div
-                        className={`flex-shrink-0 flex items-center justify-center w-6 h-6 ${badgeColor} text-white rounded-full text-xs font-semibold`}
+                        className={`flex-shrink-0 flex items-center justify-center w-6 h-6 ${badgeColor} ${badgeTextColor} rounded-full text-xs font-semibold`}
                       >
                         {index + 1}
                       </div>

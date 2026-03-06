@@ -25,8 +25,9 @@ export default function AddLocationModal({
   location,
   onClose,
   onSubmit,
+  existingLocationNames = [],
 }: AddLocationModalProps) {
-  const [category, setCategory] = useState("카페");
+  const [category, setCategory] = useState("명소/랜드마크");
   const [memo, setMemo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -37,7 +38,7 @@ export default function AddLocationModal({
    */
   useEffect(() => {
     if (isOpen) {
-      setCategory("카페");
+      setCategory("명소/랜드마크");
       setMemo("");
       setError("");
     }
@@ -46,9 +47,10 @@ export default function AddLocationModal({
   /**
    * 폼 제출 핸들러
    * 1단계: 카테고리 유효성 검증
-   * 2단계: AddLocationData 객체 생성
-   * 3단계: onSubmit 콜백 호출
-   * 4단계: 성공 시 토스트 + 모달 닫기
+   * 2단계: 중복 체크
+   * 3단계: AddLocationData 객체 생성
+   * 4단계: onSubmit 콜백 호출
+   * 5단계: 성공 시 토스트 + 모달 닫기
    */
   const handleSubmit = async () => {
     try {
@@ -62,6 +64,12 @@ export default function AddLocationModal({
 
       if (!location) {
         setError("선택된 장소가 없습니다");
+        return;
+      }
+
+      // 2단계: 중복 체크
+      if (existingLocationNames.includes(location.title)) {
+        setError("이미 후보지로 등록되었습니다.");
         return;
       }
 
@@ -155,6 +163,20 @@ export default function AddLocationModal({
               <div className="flex items-center space-x-2">
                 <input
                   type="radio"
+                  id="landmark"
+                  name="category"
+                  value="명소/랜드마크"
+                  checked={category === "명소/랜드마크"}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="landmark" className="text-sm font-normal cursor-pointer">
+                  명소/랜드마크
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
                   id="restaurant"
                   name="category"
                   value="식당"
@@ -178,6 +200,34 @@ export default function AddLocationModal({
                 />
                 <Label htmlFor="cafe" className="text-sm font-normal cursor-pointer">
                   카페
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="bar"
+                  name="category"
+                  value="바(bar)"
+                  checked={category === "바(bar)"}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="bar" className="text-sm font-normal cursor-pointer">
+                  바(bar)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="radio"
+                  id="shop"
+                  name="category"
+                  value="소품샵/쇼룸"
+                  checked={category === "소품샵/쇼룸"}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="shop" className="text-sm font-normal cursor-pointer">
+                  소품샵/쇼룸
                 </Label>
               </div>
               <div className="flex items-center space-x-2">

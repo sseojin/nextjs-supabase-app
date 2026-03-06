@@ -17,19 +17,8 @@ interface DateCellProps {
  * - 날짜 번호 표시
  * - 이전/다음 달 날짜는 회색으로 표시
  * - 프로젝트 배지 표시 (최대 2개 + N)
- * - creator: 빨강 (bg-red-500)
- * - member: 파랑 (bg-blue-500)
- * - 호버/터치 효과
- */
-/**
- * 캘린더의 개별 날짜 셀 컴포넌트
- *
- * 기능:
- * - 날짜 번호 표시
- * - 이전/다음 달 날짜는 회색으로 표시
- * - 프로젝트 배지 표시 (최대 2개 + N)
- * - creator: 빨강 (bg-red-500)
- * - member: 파랑 (bg-blue-500)
+ * - creator: 보라 (bg-purple-600)
+ * - member: 노랑 (bg-yellow-500)
  * - 배지 클릭 시 /projects/[projectId]로 라우팅
  * - 호버/터치 효과
  */
@@ -43,7 +32,7 @@ export default function DateCell({ dateCell, onDateClick, currentMonth }: DateCe
 
   // 배지 색상 함수
   const getBadgeColor = (role: "creator" | "member"): string => {
-    return role === "creator" ? "bg-red-500 text-white" : "bg-blue-500 text-white";
+    return role === "creator" ? "bg-purple-600 text-white" : "bg-yellow-500 text-gray-900";
   };
 
   // 배지 클릭 핸들러: /projects/[projectId]로 라우팅 (현재 월 정보 포함)

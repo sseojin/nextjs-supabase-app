@@ -39,6 +39,7 @@ export interface AddLocationModalProps {
   location: LocationSearchResult | null;
   onClose: () => void;
   onSubmit: (data: AddLocationData) => void;
+  existingLocationNames?: string[]; // 중복 체크를 위한 기존 후보지 장소명 목록
 }
 
 /**

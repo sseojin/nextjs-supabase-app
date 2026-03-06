@@ -16,6 +16,7 @@ export interface Candidate {
   created_by: string; // 후보지 등록자 (FK)
   votes_agree: number; // 찬성 투표 수
   votes_disagree: number; // 반대 투표 수
+  memo?: string; // 후보지에 대한 메모 (선택사항, 최대 200자)
   created_at: Date; // 생성 시간
   updated_at: Date; // 마지막 수정 시간
 }
@@ -72,6 +73,7 @@ export interface CreateCandidateRequest {
   category?: string;
   lat: number;
   lng: number;
+  memo?: string;
 }
 
 /**
