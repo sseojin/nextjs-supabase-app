@@ -5,12 +5,11 @@ import { createPortal } from "react-dom";
 import { Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import LocationInfoWindow from "./LocationInfoWindow";
+import { useRealtimeContext } from "@/components/realtime/RealtimeProvider";
 import type { NaverMapProps } from "@/lib/types/location";
-import type { CandidateWithUserVote } from "@/lib/types/candidate";
 import { sortCandidatesByCategory } from "@/lib/utils/candidates";
 
 interface NaverMapExtendedProps extends NaverMapProps {
-  candidates?: CandidateWithUserVote[];
   focusCoordinates?: { lat: number; lng: number } | null;
 }
 
@@ -24,6 +23,9 @@ interface NaverMapExtendedProps extends NaverMapProps {
  * Phase 4: 최종 선택된 후보지만 초록 마커로 표시
  * - 찬성 >= 66%: 초록 마커 표시 (#10B981)
  * - 찬성 < 66%: 마커 미표시 (지도에서 제거)
+ *
+ * Phase 5: useRealtimeContext를 사용하여 실시간 후보지 데이터 수신
+ * - Realtime이 후보지 변경을 자동으로 감지하고 마커 업데이트
  */
 export default function NaverMap({
   searchResults,
@@ -32,9 +34,10 @@ export default function NaverMap({
   onAddLocation,
   userRole = "member",
   className,
-  candidates,
   focusCoordinates,
 }: NaverMapExtendedProps) {
+  // Phase 5: RealtimeProvider에서 후보지 데이터 받기
+  const { candidates } = useRealtimeContext();
   const mapRef = useRef<naver.maps.Map | null>(null);
   const markersRef = useRef<naver.maps.Marker[]>([]);
   const candidateMarkersRef = useRef<naver.maps.Marker[]>([]);

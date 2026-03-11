@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Trash2,
   ThumbsUp,
@@ -56,6 +56,11 @@ export default function CandidateCard({
   const [isSavingMemo, setIsSavingMemo] = useState(false);
   // 로컬 메모 상태 (낙관적 업데이트)
   const [localMemo, setLocalMemo] = useState(candidate.memo || "");
+
+  // Realtime 업데이트 시 candidate.memo 변경을 감지하여 localMemo 동기화
+  useEffect(() => {
+    setLocalMemo(candidate.memo || "");
+  }, [candidate.memo]);
 
   // 백엔드에서 계산된 찬성 비율 사용 (전체 멤버 수 기준)
   const agreementRatio = candidate.agreement_ratio || 0;
@@ -154,29 +159,20 @@ export default function CandidateCard({
 
   /**
    * 메모 저장 핸들러
+   * API 라우트는 쿠키 기반 인증을 사용하므로 Authorization 헤더 불필요
+   * 메모 저장 후 Realtime이 자동으로 다른 참여자에게 변경 사항을 브로드캐스트
    */
   const handleSaveMemo = async () => {
     try {
       setIsSavingMemo(true);
 
-      // Supabase 세션에서 토큰 가져오기
-      const supabaseModule = await import("@/lib/supabase/client");
-      const supabase = supabaseModule.createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        throw new Error("인증이 필요합니다. 다시 로그인해주세요.");
-      }
-
-      // 메모 업데이트 API 호출
+      // 메모 업데이트 API 호출 (쿠키 기반 인증)
       const response = await fetch(`/api/projects/${projectId}/candidates/${candidate.id}/memo`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
         },
+        credentials: "include", // 쿠키 자동 전송
         body: JSON.stringify({ memo: memoText.trim() || null }),
       });
 
@@ -190,7 +186,7 @@ export default function CandidateCard({
       // 로컬 메모 상태 업데이트 (낙관적 업데이트)
       setLocalMemo(result.memo || "");
 
-      // 부모 컴포넌트에 메모 업데이트 알림
+      // 부모 컴포넌트에 메모 업데이트 알림 (Realtime 동기화 트리거)
       if (onMemoUpdate) {
         onMemoUpdate(candidate.id, result.memo || "");
       }
@@ -205,7 +201,7 @@ export default function CandidateCard({
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "메모 저장 중 오류가 발생했습니다";
-      console.error("메모 저장 에러:", error);
+      console.error("[CandidateCard] 메모 저장 에러:", error);
       toast.error(errorMessage);
     } finally {
       setIsSavingMemo(false);

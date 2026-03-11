@@ -26,12 +26,42 @@ import LocationSearch from "@/components/map/LocationSearch";
 import NaverMap from "@/components/map/NaverMap";
 import AddLocationModal from "@/components/map/AddLocationModal";
 import NaverMapScript from "@/components/NaverMapScript";
+import { RealtimeProvider, useRealtimeContext } from "@/components/realtime/RealtimeProvider";
+
+/**
+ * Phase 5: 후보지 등록 모달 래퍼 컴포넌트
+ * RealtimeProvider 내부에서 후보지 목록에 접근하기 위한 래퍼
+ */
+function AddLocationModalWrapper({
+  isOpen,
+  location,
+  onClose,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  location: LocationSearchResult | null;
+  onClose: () => void;
+  onSubmit: (data: AddLocationData) => Promise<AddLocationData>;
+}) {
+  const { candidates } = useRealtimeContext();
+
+  return (
+    <AddLocationModal
+      isOpen={isOpen}
+      location={location}
+      onClose={onClose}
+      onSubmit={onSubmit}
+      existingLocationNames={candidates.map((c: CandidateWithUserVote) => c.location_name)}
+    />
+  );
+}
 
 /**
  * 프로젝트 상세 페이지
  * Phase 1: 기본 프로젝트 정보와 멤버 목록 표시
  * Phase 2: 공유 링크 복사, 참여 기능 추가
  * Phase 3: 네이버 지도 추가
+ * Phase 5: Realtime 동기화 추가
  */
 export default function ProjectDetailPage() {
   const router = useRouter();
@@ -59,7 +89,6 @@ export default function ProjectDetailPage() {
 
   // Phase 4: 탭 시스템 상태
   const [activeTab, setActiveTab] = useState<"info" | "members" | "candidates">("info");
-  const [candidates, setCandidates] = useState<CandidateWithUserVote[]>([]);
 
   // 지도 포커스용 좌표 상태
   const [focusCoordinates, setFocusCoordinates] = useState<{ lat: number; lng: number } | null>(
@@ -134,59 +163,8 @@ export default function ProjectDetailPage() {
     }
   }, [projectId]);
 
-  /**
-   * 후보지 목록을 서버에서 조회
-   * 지도에 마커를 표시하고, 후보지 탭에서 데이터를 사용합니다
-   */
-  const refetchCandidates = async () => {
-    try {
-      // Supabase 세션에서 토큰 가져오기
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        return; // 세션이 없으면 조회하지 않음
-      }
-
-      const response = await fetch(`/api/projects/${projectId}/candidates`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (!response.ok) {
-        console.warn("[프로젝트] 후보지 조회 실패:", response.status);
-        return;
-      }
-
-      const data = await response.json();
-      setCandidates(data);
-    } catch (err) {
-      console.error("[프로젝트] 후보지 조회 에러:", err);
-      // 에러가 발생해도 계속 진행 (지도 기능에만 영향)
-    }
-  };
-
-  /**
-   * Phase 4: 후보지 목록 초기 조회 (페이지 로드 시)
-   */
-  useEffect(() => {
-    if (projectId) {
-      refetchCandidates();
-    }
-  }, [projectId]);
-
-  /**
-   * 후보지 탭을 클릭할 때마다 최신 데이터 조회
-   * (다른 멤버의 투표 결과 반영)
-   */
-  useEffect(() => {
-    if (activeTab === "candidates") {
-      refetchCandidates();
-    }
-  }, [activeTab]);
+  // Phase 5: RealtimeProvider가 후보지 데이터 관리
+  // refetchCandidates 함수는 RealtimeProvider 내부의 useRealtimeCandidates에서 처리됨
 
   /**
    * showSearchResults 업데이트 시 ref도 함께 업데이트
@@ -346,17 +324,8 @@ export default function ProjectDetailPage() {
       // 성공 시 응답 데이터 반환 (토스트는 AddLocationModal에서 처리)
       const result = await response.json();
 
-      // 후보지 목록 새로고침 (지도에 마커 표시하기 위해)
-      const candidatesResponse = await fetch(`/api/projects/${projectId}/candidates`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (candidatesResponse.ok) {
-        const candidatesData = await candidatesResponse.json();
-        setCandidates(candidatesData);
-      }
+      // Phase 5: RealtimeProvider가 자동으로 후보지 데이터 업데이트
+      // 수동 refetch 제거 (Realtime Realtime INSERT 이벤트로 자동 동기화됨)
 
       // 등록 성공 후 검색 결과 초기화 (검색 마커와 InfoWindow 제거)
       setSearchResults([]);
@@ -501,136 +470,138 @@ export default function ProjectDetailPage() {
               />
             </div>
 
-            {/* 지도 및 정보 패널 */}
-            <div className="flex flex-col lg:flex-row gap-0 lg:gap-0">
-              {/* 좌측: 지도 영역 (lg: 60%) */}
-              <div ref={mapAreaRef} className="flex-1 lg:border-r lg:border-slate-200">
-                <div className="h-[400px] lg:h-[600px] w-full">
-                  <NaverMap
-                    searchResults={searchResults}
-                    selectedLocation={selectedLocation}
-                    onLocationSelect={handleLocationSelect}
-                    onAddLocation={handleAddLocationClick}
-                    userRole={project.role}
-                    candidates={candidates}
-                    focusCoordinates={focusCoordinates}
-                    className="w-full h-full"
-                  />
-                </div>
-              </div>
-
-              {/* 우측: 탭 시스템 패널 (lg: 40%) */}
-              <div className="flex-1 flex flex-col bg-slate-50 lg:bg-white lg:border-l lg:border-slate-200 h-[400px] lg:h-[600px]">
-                {/* 탭 헤더 */}
-                <div className="flex border-b border-slate-200 bg-white flex-shrink-0">
-                  {["info", "members", "candidates"].map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab as typeof activeTab)}
-                      className={`flex-1 px-4 py-3 text-xs font-medium transition-colors ${
-                        activeTab === tab
-                          ? "border-b-2 border-blue-600 text-blue-600"
-                          : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
-                      }`}
-                    >
-                      {tab === "info" ? "정보" : tab === "members" ? "멤버" : "후보지"}
-                    </button>
-                  ))}
+            {/* Phase 5: RealtimeProvider로 후보지 데이터 동기화 */}
+            <RealtimeProvider projectId={projectId}>
+              {/* 지도 및 정보 패널 */}
+              <div className="flex flex-col lg:flex-row gap-0 lg:gap-0">
+                {/* 좌측: 지도 영역 (lg: 60%) */}
+                <div ref={mapAreaRef} className="flex-1 lg:border-r lg:border-slate-200">
+                  <div className="h-[400px] lg:h-[600px] w-full">
+                    <NaverMap
+                      searchResults={searchResults}
+                      selectedLocation={selectedLocation}
+                      onLocationSelect={handleLocationSelect}
+                      onAddLocation={handleAddLocationClick}
+                      userRole={project.role}
+                      focusCoordinates={focusCoordinates}
+                      className="w-full h-full"
+                    />
+                  </div>
                 </div>
 
-                {/* 탭 콘텐츠 */}
-                <div className="flex-1 p-6 overflow-y-auto min-h-0">
-                  {/* 정보 탭 */}
-                  {activeTab === "info" && (
-                    <div className="space-y-6">
-                      {/* 프로젝트 정보 카드 */}
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-semibold text-slate-900">프로젝트 정보</h3>
+                {/* 우측: 탭 시스템 패널 (lg: 40%) */}
+                <div className="flex-1 flex flex-col bg-slate-50 lg:bg-white lg:border-l lg:border-slate-200 h-[400px] lg:h-[600px]">
+                  {/* 탭 헤더 */}
+                  <div className="flex border-b border-slate-200 bg-white flex-shrink-0">
+                    {["info", "members", "candidates"].map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab as typeof activeTab)}
+                        className={`flex-1 px-4 py-3 text-xs font-medium transition-colors ${
+                          activeTab === tab
+                            ? "border-b-2 border-blue-600 text-blue-600"
+                            : "text-slate-600 hover:text-slate-900 border-b-2 border-transparent"
+                        }`}
+                      >
+                        {tab === "info" ? "정보" : tab === "members" ? "멤버" : "후보지"}
+                      </button>
+                    ))}
+                  </div>
 
-                        <div>
-                          <label className="text-xs font-medium text-slate-600">날짜</label>
-                          <p className="text-sm text-slate-900">{formattedDate}</p>
-                        </div>
+                  {/* 탭 콘텐츠 */}
+                  <div className="flex-1 p-6 overflow-y-auto min-h-0">
+                    {/* 정보 탭 */}
+                    {activeTab === "info" && (
+                      <div className="space-y-6">
+                        {/* 프로젝트 정보 카드 */}
+                        <div className="space-y-4">
+                          <h3 className="text-sm font-semibold text-slate-900">프로젝트 정보</h3>
 
-                        <div className="border-t border-slate-200 pt-3">
-                          <label className="text-xs font-medium text-slate-600">상태</label>
-                          <div className="flex gap-2 items-center mt-2">
-                            <span
-                              className={`
-                              px-3 py-1 rounded-full text-xs font-medium
-                              ${
-                                project.status === "active"
-                                  ? "bg-green-100 text-green-700"
-                                  : project.status === "archived"
-                                    ? "bg-gray-100 text-gray-700"
-                                    : "bg-blue-100 text-blue-700"
-                              }
-                            `}
-                            >
-                              {project.status === "active"
-                                ? "진행 중"
-                                : project.status === "archived"
-                                  ? "보관됨"
-                                  : "완료"}
-                            </span>
+                          <div>
+                            <label className="text-xs font-medium text-slate-600">날짜</label>
+                            <p className="text-sm text-slate-900">{formattedDate}</p>
                           </div>
+
+                          <div className="border-t border-slate-200 pt-3">
+                            <label className="text-xs font-medium text-slate-600">상태</label>
+                            <div className="flex gap-2 items-center mt-2">
+                              <span
+                                className={`
+                                px-3 py-1 rounded-full text-xs font-medium
+                                ${
+                                  project.status === "active"
+                                    ? "bg-green-100 text-green-700"
+                                    : project.status === "archived"
+                                      ? "bg-gray-100 text-gray-700"
+                                      : "bg-blue-100 text-blue-700"
+                                }
+                              `}
+                              >
+                                {project.status === "active"
+                                  ? "진행 중"
+                                  : project.status === "archived"
+                                    ? "보관됨"
+                                    : "완료"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {project.created_at && (
+                            <div className="border-t border-slate-200 pt-3">
+                              <label className="text-xs font-medium text-slate-600">생성일</label>
+                              <p className="text-xs text-slate-600 mt-1">
+                                {format(new Date(project.created_at), "yyyy년 M월 d일 HH:mm", {
+                                  locale: ko,
+                                })}
+                              </p>
+                            </div>
+                          )}
                         </div>
 
-                        {project.created_at && (
-                          <div className="border-t border-slate-200 pt-3">
-                            <label className="text-xs font-medium text-slate-600">생성일</label>
-                            <p className="text-xs text-slate-600 mt-1">
-                              {format(new Date(project.created_at), "yyyy년 M월 d일 HH:mm", {
-                                locale: ko,
-                              })}
-                            </p>
+                        {/* 공유 링크 섹션 */}
+                        {project.share_link && (
+                          <div className="border-t border-slate-200 pt-6">
+                            <h3 className="text-sm font-semibold text-slate-900 mb-3">공유 링크</h3>
+                            <ShareLinkButton
+                              projectId={project.id}
+                              shareLink={project.share_link}
+                            />
                           </div>
                         )}
                       </div>
+                    )}
 
-                      {/* 공유 링크 섹션 */}
-                      {project.share_link && (
-                        <div className="border-t border-slate-200 pt-6">
-                          <h3 className="text-sm font-semibold text-slate-900 mb-3">공유 링크</h3>
-                          <ShareLinkButton projectId={project.id} shareLink={project.share_link} />
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    {/* 멤버 탭 */}
+                    {activeTab === "members" && (
+                      <div>
+                        <MemberList members={project.members} />
+                      </div>
+                    )}
 
-                  {/* 멤버 탭 */}
-                  {activeTab === "members" && (
-                    <div>
-                      <MemberList members={project.members} />
-                    </div>
-                  )}
-
-                  {/* 후보지 탭 */}
-                  {activeTab === "candidates" && (
-                    <div>
-                      <CandidateList
-                        projectId={projectId}
-                        candidates={candidates}
-                        onCandidatesUpdate={setCandidates}
-                        totalMembers={project.members.length}
-                        onCardClick={handleCandidateClick}
-                      />
-                    </div>
-                  )}
+                    {/* 후보지 탭 */}
+                    {activeTab === "candidates" && (
+                      <div>
+                        <CandidateList
+                          projectId={projectId}
+                          totalMembers={project.members.length}
+                          onCardClick={handleCandidateClick}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {/* Phase 5: 후보지 등록 모달을 RealtimeProvider 내부로 이동 */}
+              <AddLocationModalWrapper
+                isOpen={isAddModalOpen}
+                location={locationToAdd}
+                onClose={() => setIsAddModalOpen(false)}
+                onSubmit={handleAddLocationSubmit}
+              />
+            </RealtimeProvider>
           </div>
         </div>
-
-        {/* 후보지 등록 모달 (Phase 3) */}
-        <AddLocationModal
-          isOpen={isAddModalOpen}
-          location={locationToAdd}
-          onClose={() => setIsAddModalOpen(false)}
-          onSubmit={handleAddLocationSubmit}
-          existingLocationNames={candidates.map((c) => c.location_name)}
-        />
 
         {/* 삭제 확인 다이얼로그 */}
         <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

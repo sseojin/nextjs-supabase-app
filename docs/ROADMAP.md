@@ -527,137 +527,137 @@ Phase 7: UI/UX 개선 및 전체 테스트 (2일)
 
 ---
 
-# 🎯 Phase 4: 후보지 등록 및 투표 시스템 - 실시간 투표 (3일)
+# 🎯 Phase 4: 후보지 등록 및 투표 시스템 - 실시간 투표 (3일) ✅ 완료
 
 ## 후보지 데이터베이스 스키마 추가
 
-- [ ] `supabase/migrations/` 마이그레이션 파일 생성
-  - [ ] `candidates` 테이블 (기존 locations와 다른 새 테이블)
-    - [ ] id, project_id, location_name, address, category, created_by
-    - [ ] votes_agree, votes_disagree (실시간 업데이트)
-    - [ ] created_at, updated_at
-  - [ ] `candidate_votes` 테이블
-    - [ ] id, candidate_id, user_id, vote_type ('agree' | 'disagree')
-    - [ ] 복합 유니크: (candidate_id, user_id) - 중복 투표 방지
-  - [ ] RLS 정책: 프로젝트 멤버만 투표 가능
+- [x] `supabase/migrations/` 마이그레이션 파일 생성
+  - [x] `candidates` 테이블 (기존 locations와 다른 새 테이블)
+    - [x] id, project_id, location_name, address, category, created_by
+    - [x] votes_agree, votes_disagree (실시간 업데이트)
+    - [x] created_at, updated_at
+  - [x] `candidate_votes` 테이블
+    - [x] id, candidate_id, user_id, vote_type ('agree' | 'disagree')
+    - [x] 복합 유니크: (candidate_id, user_id) - 중복 투표 방지
+  - [x] RLS 정책: 프로젝트 멤버만 투표 가능
 
 ## 최종 장소 데이터베이스 스키마 추가
 
-- [ ] `final_locations` 테이블 생성
-  - [ ] id, project_id, candidate_id, location_name, address, category
-  - [ ] lat, lng, votes_agree, votes_disagree, agreement_ratio
-  - [ ] 복합 유니크: (project_id, candidate_id) - 중복 저장 방지
-  - [ ] 찬성 >= 66%인 후보지만 자동 저장
+- [x] `final_locations` 테이블 생성
+  - [x] id, project_id, candidate_id, location_name, address, category
+  - [x] lat, lng, votes_agree, votes_disagree, agreement_ratio
+  - [x] 복합 유니크: (project_id, candidate_id) - 중복 저장 방지
+  - [x] 찬성 >= 66%인 후보지만 자동 저장
 
 ## 후보지 쿼리 함수 구현
 
-- [ ] `lib/supabase/queries/candidates.ts` 생성
-  - [ ] `getCandidates(projectId)` - 프로젝트 후보지 조회 (투표 수 포함)
-  - [ ] `createCandidate(candidate)` - 후보지 등록
-  - [ ] `deleteCandidate(candidateId)` - 후보지 삭제
-  - [ ] `voteCandidate(candidateId, userId, voteType)` - 투표
+- [x] `lib/supabase/queries/candidates.ts` 생성
+  - [x] `getCandidates(projectId)` - 프로젝트 후보지 조회 (투표 수 포함)
+  - [x] `createCandidate(candidate)` - 후보지 등록
+  - [x] `deleteCandidate(candidateId)` - 후보지 삭제
+  - [x] `voteCandidate(candidateId, userId, voteType)` - 투표
 
 ## 후보지 API 라우트 구현
 
-- [ ] `app/api/projects/[projectId]/candidates/route.ts` 생성
-  - [ ] `GET` 구현 (후보지 목록 조회 - 투표 수 포함)
-  - [ ] `POST` 구현 (후보지 등록)
-    - [ ] 요청: { location_name, address, category }
-    - [ ] 응답: { id, ...candidate, votes_agree, votes_disagree }
+- [x] `app/api/projects/[projectId]/candidates/route.ts` 생성
+  - [x] `GET` 구현 (후보지 목록 조회 - 투표 수 포함)
+  - [x] `POST` 구현 (후보지 등록)
+    - [x] 요청: { location_name, address, category }
+    - [x] 응답: { id, ...candidate, votes_agree, votes_disagree }
 
-- [ ] `app/api/projects/[projectId]/candidates/[candidateId]/route.ts` 생성
-  - [ ] `DELETE` 구현 (후보지 삭제 - 모든 사용자 가능)
+- [x] `app/api/projects/[projectId]/candidates/[candidateId]/route.ts` 생성
+  - [x] `DELETE` 구현 (후보지 삭제 - 모든 사용자 가능)
 
-- [ ] `app/api/projects/[projectId]/candidates/[candidateId]/vote/route.ts` 생성
-  - [ ] `POST` 구현 (투표 생성/변경/취소)
-    - [ ] 요청: { vote_type: 'agree' | 'disagree' }
-    - [ ] 응답: { votes_agree, votes_disagree, user_vote, agreement_ratio }
-    - [ ] 자동: 찬성 >= 66% → final_locations에 저장
+- [x] `app/api/projects/[projectId]/candidates/[candidateId]/vote/route.ts` 생성
+  - [x] `POST` 구현 (투표 생성/변경/취소)
+    - [x] 요청: { vote_type: 'agree' | 'disagree' }
+    - [x] 응답: { votes_agree, votes_disagree, user_vote, agreement_ratio }
+    - [x] 자동: 찬성 >= 66% → final_locations에 저장
 
 ## 최종 장소 저장 API 구현
 
-- [ ] `app/api/projects/[projectId]/final-locations/route.ts` 생성
-  - [ ] `POST` 구현 (최종 장소 저장)
-    - [ ] 자동 호출: 투표 결과가 66% 이상이면 자동 저장
-    - [ ] 중복 저장 방지
-  - [ ] `DELETE` 구현 (찬성 < 66%시 자동 삭제)
-  - [ ] `GET` 구현 (최종 장소 목록 조회)
+- [x] `app/api/projects/[projectId]/final-locations/route.ts` 생성
+  - [x] `POST` 구현 (최종 장소 저장)
+    - [x] 자동 호출: 투표 결과가 66% 이상이면 자동 저장
+    - [x] 중복 저장 방지
+  - [x] `DELETE` 구현 (찬성 < 66%시 자동 삭제)
+  - [x] `GET` 구현 (최종 장소 목록 조회)
 
 ## 후보지 카드 컴포넌트 (탭 시스템 내)
 
-- [ ] `components/projects/CandidateCard.tsx` 생성 ("use client")
-  - [ ] **헤더**: 번호 배지(1,2,3...), 장소명, 주소, 카테고리, 지도 링크
-  - [ ] **중단 (투표)**:
-    - [ ] 좌측: "[👍] N명 │ [👎] N명" (투표 현황)
-    - [ ] 우측: "✓" or "✕" or "-" (결과 아이콘, 40-48px, 크게)
-    - [ ] 우측 상단: "[✕ 삭제]" 버튼 (모든 사용자 표시)
-  - [ ] **로직**:
-    - [ ] 클릭 즉시 사람 수 업데이트 (낙관적 업데이트)
-    - [ ] 투표 변경: 찬성→반대 시 찬성 -1, 반대 +1
-    - [ ] 투표 취소: 같은 버튼 재클릭 시 -1
-    - [ ] 결과 실시간 변경: ✓(초록) / ✕(검정) / -(회색)
-    - [ ] 최종 선정: ⭐ "최종 선정됨" 표시, 배경색 강조
+- [x] `components/projects/CandidateCard.tsx` 생성 ("use client")
+  - [x] **헤더**: 번호 배지(1,2,3...), 장소명, 주소, 카테고리, 지도 링크
+  - [x] **중단 (투표)**:
+    - [x] 좌측: "[👍] N명 │ [👎] N명" (투표 현황)
+    - [x] 우측: "✓" or "✕" or "-" (결과 아이콘, 40-48px, 크게)
+    - [x] 우측 상단: "[✕ 삭제]" 버튼 (모든 사용자 표시)
+  - [x] **로직**:
+    - [x] 클릭 즉시 사람 수 업데이트 (낙관적 업데이트)
+    - [x] 투표 변경: 찬성→반대 시 찬성 -1, 반대 +1
+    - [x] 투표 취소: 같은 버튼 재클릭 시 -1
+    - [x] 결과 실시간 변경: ✓(초록) / ✕(검정) / -(회색)
+    - [x] 최종 선정: ⭐ "최종 선정됨" 표시, 배경색 강조
 
 ## 지도 마커 색상 변경 로직
 
-- [ ] `components/map/NaverMap.tsx` 수정
-  - [ ] 마커 색상 계산 함수: `getMarkerColor(candidate)`
-    - [ ] 투표 없음(0/0): 회색 (#9CA3AF)
-    - [ ] 찬성 < 66%: 빨강 (#EF4444)
-    - [ ] 찬성 >= 66%: 초록 (#10B981)
-  - [ ] 후보지 데이터 변경 → 마커 색상 실시간 업데이트
-  - [ ] 초록 마커 = 최종 선정된 장소
+- [x] `components/map/NaverMap.tsx` 수정
+  - [x] 마커 색상 계산 함수: `getMarkerColor(candidate)`
+    - [x] 투표 없음(0/0): 회색 (#9CA3AF)
+    - [x] 찬성 < 66%: 빨강 (#EF4444)
+    - [x] 찬성 >= 66%: 초록 (#10B981)
+  - [x] 후보지 데이터 변경 → 마커 색상 실시간 업데이트
+  - [x] 초록 마커 = 최종 선정된 장소
 
 ## 후보지 목록 컴포넌트 (탭 콘텐츠)
 
-- [ ] `components/projects/CandidateList.tsx` 생성 ("use client")
-  - [ ] GET /api/projects/:id/candidates 호출 (초기 로드)
-  - [ ] CandidateCard[] 렌더링
-  - [ ] 로딩/에러/빈 목록 상태 처리
+- [x] `components/projects/CandidateList.tsx` 생성 ("use client")
+  - [x] GET /api/projects/:id/candidates 호출 (초기 로드)
+  - [x] CandidateCard[] 렌더링
+  - [x] 로딩/에러/빈 목록 상태 처리
 
 ## 프로젝트 페이지 탭 시스템 통합
 
-- [ ] `app/projects/[projectId]/page.tsx` 수정
-  - [ ] 탭 시스템 적용 (정보, 멤버, 후보지)
-  - [ ] **데스크톱**: 지도(60%) + 우측 패널 탭(40%)
-  - [ ] **모바일**: 지도 + 하단 탭 패널(고정)
-  - [ ] 후보지 탭에 CandidateList 컴포넌트 렌더링
+- [x] `app/projects/[projectId]/page.tsx` 수정
+  - [x] 탭 시스템 적용 (정보, 멤버, 후보지)
+  - [x] **데스크톱**: 지도(60%) + 우측 패널 탭(40%)
+  - [x] **모바일**: 지도 + 하단 탭 패널(고정)
+  - [x] 후보지 탭에 CandidateList 컴포넌트 렌더링
 
 ## 반응형 Tailwind 스타일링
 
-- [ ] 모바일 (< md):
-  - [ ] 지도: h-[400px]
-  - [ ] 탭 패널: fixed bottom-0 h-[300px]
-  - [ ] 투표 버튼: 풀 너비 (gap-2)
-  - [ ] 결과 아이콘: 중앙에 크게
+- [x] 모바일 (< md):
+  - [x] 지도: h-[400px]
+  - [x] 탭 패널: fixed bottom-0 h-[300px]
+  - [x] 투표 버튼: 풀 너비 (gap-2)
+  - [x] 결과 아이콘: 중앙에 크게
 
-- [ ] 데스크톱 (md 이상):
-  - [ ] 레이아웃: lg:flex lg:gap-4
-  - [ ] 지도: lg:w-3/5
-  - [ ] 우측: lg:w-2/5 (sticky)
-  - [ ] 투표: "[👍] 2명 │ [👎] 1명 │ ✓" 한 줄
+- [x] 데스크톱 (md 이상):
+  - [x] 레이아웃: lg:flex lg:gap-4
+  - [x] 지도: lg:w-3/5
+  - [x] 우측: lg:w-2/5 (sticky)
+  - [x] 투표: "[👍] 2명 │ [👎] 1명 │ ✓" 한 줄
 
 ## 기능 테스트 (Phase 4)
 
-- [ ] **실시간 투표**:
-  - [ ] "[👍] 1명"에서 클릭 → 즉시 "[👍] 2명"으로 변경
-  - [ ] 결과: - (회색) → ✓ (초록) 또는 ✕ (검정)
-  - [ ] 투표 변경: 찬성→반대 시 -1/+1 자동 조정
-  - [ ] 투표 취소: 같은 버튼 재클릭 시 -1
+- [x] **실시간 투표**:
+  - [x] "[👍] 1명"에서 클릭 → 즉시 "[👍] 2명"으로 변경
+  - [x] 결과: - (회색) → ✓ (초록) 또는 ✕ (검정)
+  - [x] 투표 변경: 찬성→반대 시 -1/+1 자동 조정
+  - [x] 투표 취소: 같은 버튼 재클릭 시 -1
 
-- [ ] **지도 마커 색상**:
-  - [ ] 투표 없음: 회색 마커
-  - [ ] 찬성 < 66%: 빨강 마커
-  - [ ] 찬성 >= 66%: 초록 마커 (실시간 변경)
+- [x] **지도 마커 색상**:
+  - [x] 투표 없음: 회색 마커
+  - [x] 찬성 < 66%: 빨강 마커
+  - [x] 찬성 >= 66%: 초록 마커 (실시간 변경)
 
-- [ ] **최종 선정**:
-  - [ ] 초록 마커 = final_locations에 저장
-  - [ ] 카드에 ⭐ "최종 선정됨" 표시
-  - [ ] 배경색 강조 (bg-green-50)
+- [x] **최종 선정**:
+  - [x] 초록 마커 = final_locations에 저장
+  - [x] 카드에 ⭐ "최종 선정됨" 표시
+  - [x] 배경색 강조 (bg-green-50)
 
-- [ ] **모바일/데스크톱 레이아웃**:
-  - [ ] 모바일: 수직 스택, 결과 아이콘 중앙에 크게
-  - [ ] 데스크톱: 한 줄 레이아웃, 결과 우측에 크게
+- [x] **모바일/데스크톱 레이아웃**:
+  - [x] 모바일: 수직 스택, 결과 아이콘 중앙에 크게
+  - [x] 데스크톱: 한 줄 레이아웃, 결과 우측에 크게
 
 ---
 
@@ -955,7 +955,7 @@ Phase 2: ██░░░░░░░░ 20% (2/10 완료)
   - [x] InfoWindow + 사진 크롤링
   - [x] 지도 자동 스크롤 기능
   - [ ] 지도 직접 클릭 + Reverse Geocoding (선택사항)
-- [ ] Phase 4 완료 → 후보지 등록 + 투표 시스템 (색상 핀 + is_approved)
+- [x] Phase 4 완료 → 후보지 등록 + 투표 시스템 (색상 핀 + is_approved)
 - [ ] Phase 5 완료 → 실시간 동기화 (지도 + 목록 + 투표)
 - [ ] Phase 6 완료 → 최종 장소 목록 (타임테이블 준비)
 - [ ] Phase 7 완료 → MVP 출시 준비 완료
@@ -971,27 +971,23 @@ Phase 2: ██░░░░░░░░ 20% (2/10 완료)
 - [x] **Phase 0** (100%) - 랜딩 페이지 + 캘린더 구현 완료
 - [x] **Phase 1** (100%) - 데이터베이스 + 프로젝트 생성 완료
 - [x] **Phase 2** (100%) - 공유 링크 생성 + 참여 완료
+- [x] **Phase 3** (100%) - 네이버 지도 기본 구현 완료
+- [x] **Phase 4** (100%) - 후보지 등록 및 투표 시스템 완료
 
 ### 진행 중인 페이즈
 
-- [ ] **Phase 3** (80%) - 네이버 지도 기본 구현 진행 중
-  - [x] 지도 + 검색 + 마커 렌더링 완료
-  - [x] InfoWindow + 사진 크롤링 완료
-  - [x] 검색 결과 클릭 → 자동 이동 + 스크롤 완료
-  - [ ] 지도 직접 클릭 + Reverse Geocoding (선택사항)
+- [ ] **Phase 5** (0%) - Realtime 동기화 (후보지 + 투표) 진행 예정
 
 ### 다음 페이즈
 
-- [ ] Phase 4: 후보지 등록 및 투표 시스템 (POST API 구현)
-- [ ] Phase 5: Realtime 동기화 (후보지 + 투표)
 - [ ] Phase 6: 최종 장소 목록 및 타임테이블 준비
 - [ ] Phase 7: UI/UX 개선 및 전체 테스트
 
 ---
 
-**마지막 업데이트**: 2026년 3월 5일
-**상태**: Phase 0, 1, 2 완료 → Phase 3 진행 중 (80% 완료)
-**다음 단계**: Phase 4 후보지 등록 및 투표 시스템
+**마지막 업데이트**: 2026년 3월 10일
+**상태**: Phase 0, 1, 2, 3, 4 완료 → Phase 5 진행 예정
+**다음 단계**: Phase 5 Realtime 동기화 (후보지 + 투표)
 
 ---
 
